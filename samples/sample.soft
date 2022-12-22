@@ -1,0 +1,8 @@
+function foo(a: number, b: number) {
+    return a * a + b * b;
+}
+
+const x: number = 4;
+const y: number = 80;
+const z: number = foo(x, y);
+print(z);
