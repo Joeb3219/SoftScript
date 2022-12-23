@@ -1,5 +1,6 @@
 import exp from "constants";
-import { ASTNodeArgument, ASTNodeAssignment, ASTNodeExpression, ASTNodeExpressionMath, ASTNodeExpressionNonMath, ASTNodeFunctionCall, ASTNodeFunctionDefinition, ASTNodeFunctionParamDefinition, ASTNodeIdentifier, ASTNodeNumber, ASTNodeProgram, ASTNodeReturnExpression, ASTNodeRoot, ASTNodeStatement, ASTNodeType, ASTNodeVariableDefinition } from "./AST.types";
+import _ from "lodash";
+import { ASTNodeArgument, ASTNodeAssignment, ASTNodeExpression, ASTNodeExpressionMath, ASTNodeExpressionNonMath, ASTNodeFunctionCall, ASTNodeFunctionDefinition, ASTNodeFunctionParamDefinition, ASTNodeIdentifier, ASTNodeNumber, ASTNodeProgram, ASTNodeReturnExpression, ASTNodeRoot, ASTNodeStatement, ASTNodeType, ASTNodeVariableDefinition, FunctionTable, FunctionTableEntry, Variable, VariableType } from "./AST.types";
 import { Token, TokenType } from "./Token.types";
 
 
@@ -20,7 +21,7 @@ PARAM_DEF: IDENTIFIER : TYPE
 PARAM_DEF_LIST: PARAM_DEF | PARAM_DEF , PARAM_DEF_LIST
 VARIABLE_DECLARATION: const IDENTIFIER : TYPE | const IDENTIFIER : TYPE = EXPRESSION
 
-FN_DEFINITION: function IDENTIFIER () { STMST_LIST }
+FN_DEFINITION: function IDENTIFIER () : TYPE { STMST_LIST }
 
 MATH_EXPRESSION: MATH_SUBTRACT
 MATH_SUBTRACT: EXPRESSION_NON_MATH - MATH_ADD | MATH_ADD
@@ -31,13 +32,15 @@ MATH_POWER: EXPRESSION_NON_MATH ^ EXPRESSION | EXPRESSION
 
 */
 
-type FunctionReturnType<G> = G extends () => (infer A) ? A : never;
 
 export class Parser {
+    private functionTable: FunctionTable;
+    static readonly _GLOBAL_ROOT_NAME = '__internal__global_scope';
     private currentTokenIndex: number;
 
     constructor(private readonly tokens: Token[]) {
         this.currentTokenIndex = 0;
+        this.functionTable = {};
     }
 
     // Util functions to work with the current token's position
@@ -76,6 +79,14 @@ export class Parser {
         return this.consume();
     }
 
+    private consumeOfTypeOption(type: TokenType | TokenType[]): Token | undefined {
+        if (Array.isArray(type) ? !type.includes(this.currentToken.type) : this.currentToken.type !== type) {
+            return undefined;
+        } 
+
+        return this.consume();
+    }
+
     // Higher-order util functions for working with the rapid descent parser.
     private applyUntilFails<T>(fn: () => T): T[] {
         const results: T[] = [];
@@ -84,14 +95,18 @@ export class Parser {
             const currentTokenIndex = this.currentTokenIndex;
             try {
                 results.push(fn.bind(this)());
-            } catch (e) {
-                console.error(e);
+            } catch {
                 this.currentTokenIndex = currentTokenIndex;
                 return results;
             }
         }
     }
 
+    // Error handlers
+    private raiseCriticalError(msg: string) {
+        console.error(`CRITICAL: ${msg}`);
+        process.exit(1);
+    }
     
     // The Rapid Descent Parser
     private parseType(): ASTNodeType {
@@ -119,15 +134,17 @@ export class Parser {
                 paramType,
                 initialValue,
                 token: identifier.token,
-                type: 'function_param_definition'
+                type: 'variable_definition'
             }
+        } else {
+            this.consumeOfTypeOption('semi_colon');
         }
 
         return {
             identifier,
             paramType,
             token: identifier.token,
-            type: 'function_param_definition'
+            type: 'variable_definition'
         }
     }
 
@@ -154,23 +171,48 @@ export class Parser {
     }
 
     private parseFunctionDefinition(): ASTNodeFunctionDefinition {
-        console.log('evaluating fn def', this.currentToken)
         const rootToken = this.consumeOfType('function');
         const identifier = this.parseIdentifier();
         this.consumeOfType('left_paren');
         const paramDefinitions = this.parseFunctionParamDefinitions();
         this.consumeOfType('right_paren');
+        
+        this.consumeOfType('colon');
+        const returnType = this.parseType();
+
         this.consumeOfType('left_curly');
         const statements = this.applyUntilFails(this.parseStatement);
         this.consumeOfType('right_curly');
 
-        return {
+        const functionDefinitionNode: ASTNodeFunctionDefinition = {
             identifier,
             statements,
             paramDefinitions,
+            returnType,
             type: 'function_defnition',
             token: rootToken
+        };
+
+        const functionTableEntry: FunctionTableEntry = {
+            functionDefinitionNode,
+            name: identifier.token.lexeme,
+            localVariables: _.compact(statements.map<Variable | undefined>(f => 
+                f.value.type === 'variable_definition' ? 
+                    ({ identifier: f.value.identifier.token.lexeme, type: f.value.paramType.whichType })
+                     : undefined)),
+            parameters: paramDefinitions.map<Variable>(f => ({ identifier: f.identifier.token.lexeme, type: f.paramType.whichType })),
+            returnType: returnType.whichType
+        };
+        this.functionTable[identifier.token.lexeme] = functionTableEntry;
+
+        const intersectedParamAndLocal = functionTableEntry.parameters.find(param => 
+            functionTableEntry.localVariables.some(localVar => localVar.identifier === param.identifier));
+
+        if (!!intersectedParamAndLocal) {
+            this.raiseCriticalError(`Function '${functionTableEntry.name}' has duplicate local variable and parameter with name ${intersectedParamAndLocal.identifier}`)
         }
+
+        return functionDefinitionNode;
     }
 
     private parseReturn(): ASTNodeReturnExpression {
@@ -302,7 +344,6 @@ export class Parser {
     }
 
     private parseExpression(): ASTNodeExpression {
-        console.log('Evaluating expression', this.currentToken);
         const currentToken = this.currentToken;
         switch (this.currentToken.type) {
             case 'return':
@@ -353,7 +394,6 @@ export class Parser {
     }
 
     private parseStatement(): ASTNodeStatement {
-        console.log('parsing statement', this.currentToken);
         if (this.currentToken.type === 'function') {            
             return {
                 type: 'statement',
@@ -373,7 +413,7 @@ export class Parser {
         }
 
         const value = this.parseExpression();
-        this.consumeOfType('semi_colon');
+        this.consumeOfTypeOption('semi_colon');
 
         return {
             value,
@@ -394,11 +434,22 @@ export class Parser {
 
     parse(): ASTNodeRoot {
         this.currentTokenIndex = 0;
+        this.functionTable = {
+            [Parser._GLOBAL_ROOT_NAME]: {
+                name: Parser._GLOBAL_ROOT_NAME,
+                localVariables: [],
+                parameters: [],
+                returnType: 'void',
+                functionDefinitionNode: null
+            }
+        };
+
         const programNode = this.parseProgram();
 
         return {
             type: 'root',
-            program: programNode
+            program: programNode,
+            functionTable: this.functionTable
         }
     }
 }

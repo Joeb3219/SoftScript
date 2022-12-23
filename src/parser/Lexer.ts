@@ -40,7 +40,6 @@ export class Lexer {
     }
 
     identifyToken(str: string): TokenType | undefined {
-        console.log('identifying token for "' + str + '"')
         return Object.values(TokenParserMap).find(parser => parser.isExactToken(str))?.type;
     }
 

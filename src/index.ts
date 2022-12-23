@@ -1,6 +1,7 @@
 import { program } from 'commander';
 import { Lexer } from './parser/Lexer';
 import { Parser } from './parser/Parser';
+import { EvaluatorTarget } from './targets/EvaluatorTarget';
 
 program
     .name('Some Compiler');
@@ -11,10 +12,11 @@ program
     .action((filePath) => {
         const lexer = new Lexer(filePath);
         const tokens = lexer.lex();
-        console.log(tokens);
         const parser = new Parser(tokens);
         const ast = parser.parse();
-        console.log(JSON.stringify(ast, null, 2));
+        // console.log(JSON.stringify(ast, null, 2));
+        const evaluator = new EvaluatorTarget(ast);
+        console.log(evaluator.evaluate());
     })
 
 program.parse();

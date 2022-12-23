@@ -10,6 +10,23 @@ export type ASTNodeIdentifier = {
     token: Token;
 }
 
+export type VariableType = 'number' | 'string' | 'boolean' | 'void';
+
+export type Variable = {
+    identifier: string;
+    type: VariableType;
+}
+
+export type FunctionTableEntry = {
+    name: string;
+    parameters: Variable[];
+    localVariables: Variable[];
+    returnType: VariableType;
+    functionDefinitionNode: ASTNodeFunctionDefinition | null;
+};
+export type FunctionTable = Record<string, FunctionTableEntry>
+
+
 export type ASTNodeType = {
     type: 'type';
     token: Token;
@@ -77,7 +94,7 @@ export type ASTNodeFunctionParamDefinition = {
 }
 
 export type ASTNodeVariableDefinition = {
-    type: 'function_param_definition';
+    type: 'variable_definition';
     token: Token;
     identifier: ASTNodeIdentifier;
     paramType: ASTNodeType;
@@ -90,6 +107,7 @@ export type ASTNodeFunctionDefinition = {
     identifier: ASTNodeIdentifier;
     paramDefinitions: ASTNodeFunctionParamDefinition[];
     statements: ASTNodeStatement[];
+    returnType: ASTNodeType;
 }
 
 export type ASTNodeStatement = {
@@ -107,6 +125,7 @@ export type ASTNodeProgram = {
 export type ASTNodeRoot = {
     type: 'root',
     program: ASTNodeProgram;
+    functionTable: FunctionTable;
 }
 
 // export type ASTNode2<T extends ASTNodeType = ASTNodeType> = T extends 'root' ? {

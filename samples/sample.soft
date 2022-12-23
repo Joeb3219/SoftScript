@@ -1,5 +1,7 @@
-function foo(a: number, b: number) {
-    return a * a + b * b;
+function foo(a: number, b: number): number {
+    const x: number = a * a;
+    const y: number = b * b;
+    return x + y;
 }
 
 const x: number = 4;
