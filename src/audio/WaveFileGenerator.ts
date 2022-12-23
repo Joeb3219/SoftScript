@@ -94,7 +94,7 @@ export class WaveFileGenerator {
         const dataSizeBytes = numberSamples * this.numberChannels * (this.bitsPerSample / 8);
 
         const sounds: Sound[] = [{
-            frequency: 440,
+            frequency: 770,
             cycles: 3000
         }, {
             frequency: 2500,
@@ -109,7 +109,7 @@ export class WaveFileGenerator {
             frequency: 2000,
             cycles: 10.5
         }, {
-            frequency: 440,
+            frequency: 770,
             cycles: 3000
         }]
 

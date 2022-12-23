@@ -1,7 +1,18 @@
 import fs from 'fs';
 
+type SignalState = 'high' | 'low';
+
+type FrequencyMap = Record<number, number>;
+
 export class WaveFileReader {
     private data: Buffer;
+
+    private currentState: SignalState = 'high';
+    private lastCrossingTime = 0;
+    private currentFrequency: number = 0;
+    private sampleRate = 48000;
+    private frequencyMap: FrequencyMap = {}; 
+
     constructor(path: string) {
         this.data = fs.readFileSync(path);
         console.log(this.data);
@@ -20,48 +31,50 @@ export class WaveFileReader {
         return this.data.readInt8(0x2c + time);
     }
 
-    getFrequencyAtTime(time: number, timeToBufferMs: number = 100) {
-        const sampleRate = 48000;
-        let lastState: boolean = false;
-        let numFlips: number = 0;
-        const timeIntervals = sampleRate * (timeToBufferMs / 1_000);
+    private handleTimePoint(time: number) {
+        const value = this.getData(time);
+        const valueState: SignalState = value >= 0 ? 'high' : 'low'
+        if (this.currentState !== valueState) {
+            this.currentState = valueState;
+            
+            const timeSinceLastCrossing = time - this.lastCrossingTime;
+            this.lastCrossingTime = time;
 
-        for(let i = 0; i < timeIntervals; i ++ ){
-            const val = this.getData(i + time);
-            if (val > 0 && !lastState) {
-                numFlips ++;
-            } else if (val < 0 && lastState) {
-                numFlips ++;
-            }
+            const secondsBetweenCrossings = 2 * timeSinceLastCrossing / this.sampleRate;
+            const frequency = 1 / secondsBetweenCrossings;
 
-            lastState = val > 0;
+            this.frequencyMap[time] = frequency;
         }
-
-        return Math.round((numFlips * (1_000 / timeToBufferMs)) / 10) * 5;
     }
 
     read() {
-        const sampleRate = 48000;
+        this.frequencyMap = {};
         const targettedSampleRateMs = 25;
+        this.lastCrossingTime = 0;
+        this.currentState = 'high';
         
-        let state: State | undefined = undefined;
-
-        const intervalsPerStep = sampleRate * (targettedSampleRateMs / 1_000);
         const dataLength = this.getDataLength();
-        for (let i = 0; i < dataLength - intervalsPerStep - 0x2c; i += intervalsPerStep) {
-            const value = this.getFrequencyAtTime(i, targettedSampleRateMs * 2);
-
-            if (value === 770 && state !== 'header') {
-                state = 'header';
-                console.log('Starting to hear header at ' + i +': ' +  value)
-            }
-
-            if (value === 2500 && state === 'header') {
-                state = 'sync_bit';
-                console.log('starting sync bit at ' + i + ': ' + value);
-            }
-
+        for (let i = 0; i < 4000; i ++) {
+            this.handleTimePoint(i);
         }
+
+        console.log(this.frequencyMap);
+
+        // const intervalsPerStep = this.sampleRate * (targettedSampleRateMs / 1_000);
+        // for (let i = 0; i < dataLength - intervalsPerStep - 0x2c; i += intervalsPerStep) {
+        //     const value = this.getFrequencyAtTime(i, targettedSampleRateMs * 2);
+
+        //     if (value === 770 && state !== 'header') {
+        //         state = 'header';
+        //         console.log('Starting to hear header at ' + i +': ' +  value)
+        //     }
+
+        //     if (value === 2500 && state === 'header') {
+        //         state = 'sync_bit';
+        //         console.log('starting sync bit at ' + i + ': ' + value);
+        //     }
+
+        // }
     }
 
 }
