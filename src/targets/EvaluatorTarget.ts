@@ -44,7 +44,6 @@ export class EvaluatorTarget {
         const fnName = node.identifier.token.lexeme;
         const evaluatedArgs = node.arguments.map(arg => this.evaluateExpression(frame, arg.value));
 
-        console.log(`Evaluating function`, { fnName, evaluatedArgs, frame  })
         switch(fnName) {
             case 'print':
                 console.log(...evaluatedArgs);
@@ -84,8 +83,6 @@ export class EvaluatorTarget {
                 }
 
                 variableState.value = evaluatedExpression;
-
-                console.log('assigning', variableState);
 
                 return evaluatedExpression;
             }
@@ -162,7 +159,6 @@ export class EvaluatorTarget {
             const value = this.evaluateStatement(frame, statement);
 
             if (statement.value.type === 'expression' && statement.value.value.type === 'expression_return') {
-                console.log('returning', value);
                 return value;
             }
         }

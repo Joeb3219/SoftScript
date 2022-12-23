@@ -79,7 +79,7 @@ export class Parser {
         return this.consume();
     }
 
-    private consumeOfTypeOption(type: TokenType | TokenType[]): Token | undefined {
+    private consumeOfTypeOptional(type: TokenType | TokenType[]): Token | undefined {
         if (Array.isArray(type) ? !type.includes(this.currentToken.type) : this.currentToken.type !== type) {
             return undefined;
         } 
@@ -128,6 +128,7 @@ export class Parser {
         if (this.currentToken.type === 'equal') {
             this.consumeOfType('equal');
             const initialValue = this.parseExpression();
+            this.consumeOfTypeOptional('semi_colon');
 
             return {
                 identifier,
@@ -137,7 +138,7 @@ export class Parser {
                 type: 'variable_definition'
             }
         } else {
-            this.consumeOfTypeOption('semi_colon');
+            this.consumeOfTypeOptional('semi_colon');
         }
 
         return {
@@ -387,10 +388,10 @@ export class Parser {
                     type: 'expression',
                     token: currentToken,
                     value: expression
-                }                
+                }               
         }
 
-        throw new Error('Unable to parse expression');
+        throw new Error(`Unable to parse expression: found ${this.currentToken.lexeme}`);
     }
 
     private parseStatement(): ASTNodeStatement {
@@ -413,7 +414,7 @@ export class Parser {
         }
 
         const value = this.parseExpression();
-        this.consumeOfTypeOption('semi_colon');
+        this.consumeOfTypeOptional('semi_colon');
 
         return {
             value,
