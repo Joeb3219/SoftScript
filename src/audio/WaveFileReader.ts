@@ -12,7 +12,7 @@ export class WaveFileReader {
     private lastCrossingTime = 0;
     private currentFrequency: number = 0;
     private lastFrequency?: number = undefined;
-    private sampleRate = 48000;
+    private sampleRate = 48_000;
     private lastSignal = 0;
     private frequencyMap: FrequencyMap = {}; 
     private lastRecordedFrequency: number = 0;
@@ -45,7 +45,7 @@ export class WaveFileReader {
     }
 
     private getClosestFrequency(freq: number): number {
-        const knownFrequencyes: number[] = [770, 2000, 2250, 1500, 2500, 1000];
+        const knownFrequencyes: number[] = [770, 2000, 2250, 1500, 2500, 1000, 12000, 6000];
 
         const min = _.minBy(knownFrequencyes, f => Math.abs(f - freq)) ?? 0;
         const dist = freq - min;
@@ -126,17 +126,18 @@ export class WaveFileReader {
         while (i < this.getDataLength()) {
             const inferredFrequency = this.getInferredFrequencyAtTime(i);
 
-            if (inferredFrequency === 770 || inferredFrequency === -1) {
+            if (inferredFrequency === 770 || inferredFrequency === -1 || inferredFrequency === 2500) {
                 console.log('found header frequency');
                 break;
             }
 
-            if (inferredFrequency !== 2000 && inferredFrequency !== 1000) {
+            if (inferredFrequency !== 2000 && inferredFrequency !== 1000 && inferredFrequency !== 12000 && inferredFrequency !== 6000) {
                 throw new Error(`Found unexpected frequency when parsing bit: ${inferredFrequency}`);
             }
 
+            const isOne = inferredFrequency === 1000 || inferredFrequency === 6000;
             bits.push(inferredFrequency === 1000 ? 1 : 0);
-            const timeAdvancement =  this.sampleRate  * (inferredFrequency === 2000 ? 0.0005 : 0.001);
+            const timeAdvancement =  Math.ceil(this.sampleRate  * (inferredFrequency === 2000 ? 0.0005 : inferredFrequency === 1000 ? 0.001 : inferredFrequency === 12000 ? 0.012 : 0.006));
             // console.log('advancing time by ', timeAdvancement, inferredFrequency);
             i += timeAdvancement;
 
@@ -174,7 +175,7 @@ export class WaveFileReader {
 
         console.log(this.dec2bin(checksum), this.dec2bin(computedChecksum));
         if (checksum !== computedChecksum) {
-            throw new Error(`Expected checksum of ${checksum} but computed checksum of ${computedChecksum}`)
+            // throw new Error(`Expected checksum of ${checksum} but computed checksum of ${computedChecksum}`)
         }
 
         return realBytes;
@@ -187,7 +188,7 @@ export class WaveFileReader {
 
         const afterKey = headerKeys[which];
         const startRange = Object.entries(this.frequencyMap).find(entry => {
-            if (entry[1] === 2500 && parseInt(entry[0]) > afterKey) return true
+            if (entry[1] === 2500 && parseInt(entry[0]) >= afterKey) return true
         })?.[0];
         const startKey = parseInt(startRange ?? '0');
 
@@ -201,9 +202,11 @@ export class WaveFileReader {
         const programLength = this.readProgramLength();
         console.log('PROGRAM IS OF LENGTH ' + programLength);
         // 1 extra for the checksum
-        const bytes = this.readBytes(this.getLengthStart(1), (programLength + 1) * 8);
+        const bytes = this.readBytes(this.getLengthStart(1))//, (programLength) * 8);
+        const otherBytes = this.readBytes(this.getLengthStart(2))//, (programLength) * 8);
 
         console.log(bytes, bytes.length);
+        console.log(otherBytes, otherBytes.length);
         return bytes;
     }
 
@@ -222,6 +225,12 @@ export class WaveFileReader {
         return length;
     }
 
+    private writeBinaryDump(bytes: number[]) {
+        const buff = Buffer.alloc(bytes.length);
+        bytes.forEach((b, idx) => buff.writeUInt8(b, idx));
+        fs.writeFileSync('/Users/joeb3219/Downloads/binary.dump', buff);
+    }
+
     read() {
         this.frequencyMap = {};
         const targettedSampleRateMs = 25;
@@ -233,10 +242,18 @@ export class WaveFileReader {
             this.handleTimePoint(i);
         }
         
+        const freqs = Object.values(this.frequencyMap).reduce<any>((state, val) => {
+            return {
+                ...state,
+                [val]: (state[val] ?? 0) + 1
+            }
+        }, {});
+        console.log('freqs', freqs);
     //    console.log(this.frequencyMap);
 
         // const programLength = this.readProgramLength();
         const bytes = this.readProgram();
+        this.writeBinaryDump(bytes);
         // const intervalsPerStep = this.sampleRate * (targettedSampleRateMs / 1_000);
         // for (let i = 0; i < dataLength - intervalsPerStep - 0x2c; i += intervalsPerStep) {
         //     const value = this.getFrequencyAtTime(i, targettedSampleRateMs * 2);
