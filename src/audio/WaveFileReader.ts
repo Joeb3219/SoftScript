@@ -76,7 +76,12 @@ export class WaveFileReader {
             
             const closest = this.getClosestFrequency(frequency);
             if (closest !== this.lastRecordedFrequency) {
-                this.frequencyMap[time] = closest;
+                const startOfWave = Math.ceil(this.sampleRate / (closest / 0.5)) - 1;
+                if (time === 192009) {
+                    // console.log('start of wave was delta' + startOfWave, closest, time)
+                }
+                const timeCandidate = time - startOfWave;
+                this.frequencyMap[timeCandidate > 0 ? timeCandidate : time] = closest;
                 this.lastRecordedFrequency = closest;
             }
             
@@ -96,6 +101,10 @@ export class WaveFileReader {
         return closestKey ? this.frequencyMap[closestKey as any] : 0;
     }
 
+    private dec2bin(dec: number) {
+        return (dec >>> 0).toString(2).padStart(8, '0');
+      }
+
     // Reads the bytes starting at position until we end the stream
     // Throws an error if the checksum byte fails.
     private readBytes(startingPosition: number): number[] {
@@ -109,20 +118,24 @@ export class WaveFileReader {
             }
 
             if (inferredFrequency !== 2000 && inferredFrequency !== 1000) {
+                console.log(i);
+                break;
                 throw new Error(`Found unexpected frequency when parsing bit: ${inferredFrequency}`);
             }
 
             bits.push(inferredFrequency === 1000 ? 1 : 0);
             const timeAdvancement =  this.sampleRate  * (inferredFrequency === 2000 ? 0.0005 : 0.001);
-            console.log('advancing time by ', timeAdvancement, inferredFrequency);
+            // console.log('advancing time by ', timeAdvancement, inferredFrequency);
             i += timeAdvancement;
         }
+
+        console.log(bits.length);
 
         if (bits.length % 8 !== 0) {
             // throw new Error(`Expected to decode a multiple of 8 bits, but decoded ${bits.length} bits`);
         }
 
-        const bytes = _.chunk(bits, 8).map(groupBits => {
+        const bytes = _.chunk(bits.slice(0, bits.length - 1), 8).map(groupBits => {
             let byte = 0;
             for (const bit of groupBits) {
                 byte = (byte << 1) | bit; 
@@ -136,23 +149,44 @@ export class WaveFileReader {
 
         const computedChecksum = realBytes.reduce((state, byte) => {
             return state ^ byte;
-        }, 0);
+            // Unlike most checksums, Apple uses 0xFF instead of 0x00.
+            // See: http://mirrors.apple2.org.za/ground.icaen.uiowa.edu/MiscInfo/Programming/cassette.format
+        }, 0xFF);
 
         console.log(realBytes, checksum, computedChecksum);
 
+        console.log(this.dec2bin(checksum), this.dec2bin(computedChecksum));
         if (checksum !== computedChecksum) {
             throw new Error(`Expected checksum of ${checksum} but computed checksum of ${computedChecksum}`)
         }
 
-        return bits;
+        return realBytes;
+    }
+
+    private getLengthStart() {
+        const startRange = Object.entries(this.frequencyMap).find(entry => {
+            if (entry[1] === 2500) return true
+        })?.[0];
+        const startKey = parseInt(startRange ?? '0');
+
+        // return 385147;
+
+        return startKey + 28;
     }
 
     private readProgramLength() {
-        // TODO: compute this instead of hard-setting
+        // console.log('start', this.getLengthStart());
+        const bytes = this.readBytes(this.getLengthStart());
 
-        const bytes = this.readBytes(192022);
+        let length: number = 0;
+        for(const byte of _.reverse(bytes)) {
+            console.log('appending ' + this.dec2bin(byte) + ' to ' + length)
+            length = (length << 8) | byte;
+        }
+
         console.log(bytes, bytes.length);
-        return [];
+        console.log('Program is of length ' + length, length ^ 0xFFFFFF, this.dec2bin(length));
+        return length;
     }
 
     read() {
@@ -162,11 +196,11 @@ export class WaveFileReader {
         this.currentState = 'high';
         
         const dataLength = this.getDataLength();
-        for (let i = 0; i < 400000; i ++) {
+        for (let i = 0; i < dataLength; i ++) {
             this.handleTimePoint(i);
         }
         
-       console.log(this.frequencyMap);
+    //    console.log(this.frequencyMap);
 
         const programLength = this.readProgramLength();
         // const intervalsPerStep = this.sampleRate * (targettedSampleRateMs / 1_000);

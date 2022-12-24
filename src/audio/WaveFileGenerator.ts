@@ -77,6 +77,8 @@ export class WaveFileGenerator {
         const numSamples = Math.ceil(this.sampleRate / (sound.frequency / sound.cycles));
         const buffer = Buffer.alloc(numSamples * this.numberChannels * (this.bitsPerSample / 8));
 
+        
+
         let offset = 0;
         for (let i = 0; i < numSamples; i ++) {
             const amplitude = 93;
@@ -94,11 +96,11 @@ export class WaveFileGenerator {
         const sounds: Sound[] = [
         {
             frequency: 770,
-            cycles: 7700
+            cycles: 3200
         },
         {
             frequency: 2500,
-            cycles: 1.5
+            cycles: 0.5
         }, 
         {
             frequency: 2000,
