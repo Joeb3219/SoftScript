@@ -73,15 +73,16 @@ export class WaveFileGenerator {
     }
 
     generateSound(sound: Sound): Buffer {
-        const numSamples = Math.floor(this.sampleRate * 0.0013 * sound.cycles);
+        // const numSamples = Math.floor(this.sampleRate * 0.0013 * sound.cycles);
+        const numSamples = Math.ceil(this.sampleRate / (sound.frequency / sound.cycles));
         const buffer = Buffer.alloc(numSamples * this.numberChannels * (this.bitsPerSample / 8));
 
         let offset = 0;
         for (let i = 0; i < numSamples; i ++) {
             const amplitude = 93;
 
-            const channel1 = Math.round(((Math.sin(sound.frequency * (2 * Math.PI) * (i / this.sampleRate))) * amplitude)) + 128;
-            
+            const channel1 = ((Math.sin(sound.frequency * (2 * Math.PI) * (i / this.sampleRate))) * amplitude) + 128;
+
             buffer.writeUInt8(channel1, offset);
             offset += (this.bitsPerSample / 8);
         }
@@ -90,16 +91,16 @@ export class WaveFileGenerator {
     }
 
     write(path: string) {
-        const numberSamples = this.sampleRate * 3;
-        const dataSizeBytes = numberSamples * this.numberChannels * (this.bitsPerSample / 8);
-
-        const sounds: Sound[] = [{
+        const sounds: Sound[] = [
+        {
             frequency: 770,
-            cycles: 3000
-        }, {
+            cycles: 7700
+        },
+        {
             frequency: 2500,
-            cycles: 0.5
-        }, {
+            cycles: 1.5
+        }, 
+        {
             frequency: 2000,
             cycles: 0.5
         }, {
@@ -111,7 +112,8 @@ export class WaveFileGenerator {
         }, {
             frequency: 770,
             cycles: 3000
-        }]
+        }
+    ]
 
         const data = sounds.reduce((state, s) => {
             return Buffer.from([...state, ...this.generateSound(s)])
