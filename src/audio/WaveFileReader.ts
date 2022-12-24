@@ -89,7 +89,7 @@ export class WaveFileReader {
 
             if (closest !== this.lastRecordedFrequency) {
                 const startOfWave = Math.ceil(this.sampleRate / (closest / 0.5)) - 1;
-                console.log('start of wave was delta' + startOfWave, closest, time)
+                // console.log('start of wave was delta' + startOfWave, closest, time)
                 const timeCandidate = time - startOfWave;
                 this.frequencyMap[timeCandidate > 0 ? timeCandidate : time] = closest;
                 this.lastRecordedFrequency = closest;
@@ -117,7 +117,7 @@ export class WaveFileReader {
 
     // Reads the bytes starting at position until we end the stream
     // Throws an error if the checksum byte fails.
-    private readBytes(startingPosition: number): number[] {
+    private readBytes(startingPosition: number, maxBits: number = Infinity): number[] {
         let i = startingPosition;
         const bits: number[] = [];
 
@@ -139,6 +139,11 @@ export class WaveFileReader {
             const timeAdvancement =  this.sampleRate  * (inferredFrequency === 2000 ? 0.0005 : 0.001);
             // console.log('advancing time by ', timeAdvancement, inferredFrequency);
             i += timeAdvancement;
+
+            if (bits.length >= maxBits) {
+                console.log('Have read ' + bits.length + ' bits and therefore exiting early');
+                break;
+            }
         }
 
 
@@ -175,26 +180,42 @@ export class WaveFileReader {
         return realBytes;
     }
 
-    private getLengthStart() {
+    private getLengthStart(which: number = 0) {
+        const headerKeys = Object.entries(this.frequencyMap).filter(entry => {
+            if (entry[1] === 770) return true;
+        }).map(entry => parseInt(entry[0]));
+
+        const afterKey = headerKeys[which];
         const startRange = Object.entries(this.frequencyMap).find(entry => {
-            if (entry[1] === 2500) return true
+            if (entry[1] === 2500 && parseInt(entry[0]) > afterKey) return true
         })?.[0];
         const startKey = parseInt(startRange ?? '0');
 
-        return 385125 + 24;
+        // 468 bytes
+        // return 385125 + 24;
 
         return startKey + 24;
     }
 
+    private readProgram() {
+        const programLength = this.readProgramLength();
+        console.log('PROGRAM IS OF LENGTH ' + programLength);
+        // 1 extra for the checksum
+        const bytes = this.readBytes(this.getLengthStart(1), (programLength + 1) * 8);
+
+        console.log(bytes, bytes.length);
+        return bytes;
+    }
+
     private readProgramLength() {
         // console.log('start', this.getLengthStart());
-        const bytes = this.readBytes(this.getLengthStart());
+        const bytes = this.readBytes(this.getLengthStart(0));
 
-        let length: number = 0;
-        for(const byte of _.reverse(bytes)) {
-            console.log('appending ' + this.dec2bin(byte) + ' to ' + length)
-            length = (length << 8) | byte;
-        }
+        const length = (bytes[1] << 8) | bytes[0];
+        // for(const byte of bytes.reverse().slice(0, 2)) {
+        //     console.log('appending ' + byte + ' to ' + length)
+        //     length = (length << 8) | byte;
+        // }
 
         console.log(bytes, bytes.length);
         console.log('Program is of length ' + length, length ^ 0xFFFFFF, this.dec2bin(length));
@@ -214,7 +235,8 @@ export class WaveFileReader {
         
     //    console.log(this.frequencyMap);
 
-        const programLength = this.readProgramLength();
+        // const programLength = this.readProgramLength();
+        const bytes = this.readProgram();
         // const intervalsPerStep = this.sampleRate * (targettedSampleRateMs / 1_000);
         // for (let i = 0; i < dataLength - intervalsPerStep - 0x2c; i += intervalsPerStep) {
         //     const value = this.getFrequencyAtTime(i, targettedSampleRateMs * 2);
