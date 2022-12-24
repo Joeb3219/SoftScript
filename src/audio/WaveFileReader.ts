@@ -19,6 +19,10 @@ export class WaveFileReader {
 
     constructor(path: string) {
         this.data = fs.readFileSync(path);
+
+        this.sampleRate = this.data.readUint16LE(0x18);
+        console.log('sample rate', this.sampleRate);
+
         console.log(this.data);
     }
 
