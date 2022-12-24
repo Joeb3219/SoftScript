@@ -47,7 +47,13 @@ export class WaveFileReader {
     private getClosestFrequency(freq: number): number {
         const knownFrequencyes: number[] = [770, 2000, 2250, 1500, 2500, 1000];
 
-        return _.minBy(knownFrequencyes, f => Math.abs(f - freq)) ?? 0;
+        const min = _.minBy(knownFrequencyes, f => Math.abs(f - freq)) ?? 0;
+        const dist = freq - min;
+        if (dist > 250) {
+            return -1;
+        }
+
+        return min;
     }
 
     private handleTimePoint(time: number) {
@@ -75,11 +81,15 @@ export class WaveFileReader {
             , 10);
             
             const closest = this.getClosestFrequency(frequency);
+
+            if (!isFinite(frequency)) {
+                console.log('infinite frequency at ' + time, timeSinceLastCrossing, secondsBetweenCrossings);
+                return;
+            }
+
             if (closest !== this.lastRecordedFrequency) {
                 const startOfWave = Math.ceil(this.sampleRate / (closest / 0.5)) - 1;
-                if (time === 192009) {
-                    // console.log('start of wave was delta' + startOfWave, closest, time)
-                }
+                console.log('start of wave was delta' + startOfWave, closest, time)
                 const timeCandidate = time - startOfWave;
                 this.frequencyMap[timeCandidate > 0 ? timeCandidate : time] = closest;
                 this.lastRecordedFrequency = closest;
@@ -111,15 +121,17 @@ export class WaveFileReader {
         let i = startingPosition;
         const bits: number[] = [];
 
+
+        console.log('starting position', startingPosition);
         while (i < this.getDataLength()) {
             const inferredFrequency = this.getInferredFrequencyAtTime(i);
-            if (inferredFrequency === 770) {
+
+            if (inferredFrequency === 770 || inferredFrequency === -1) {
+                console.log('found header frequency');
                 break;
             }
 
             if (inferredFrequency !== 2000 && inferredFrequency !== 1000) {
-                console.log(i);
-                break;
                 throw new Error(`Found unexpected frequency when parsing bit: ${inferredFrequency}`);
             }
 
@@ -129,13 +141,13 @@ export class WaveFileReader {
             i += timeAdvancement;
         }
 
-        console.log(bits.length);
+
 
         if (bits.length % 8 !== 0) {
             // throw new Error(`Expected to decode a multiple of 8 bits, but decoded ${bits.length} bits`);
         }
 
-        const bytes = _.chunk(bits.slice(0, bits.length - 1), 8).map(groupBits => {
+        const bytes = _.chunk(bits.slice(0, Math.floor(bits.length / 8) * 8), 8).map(groupBits => {
             let byte = 0;
             for (const bit of groupBits) {
                 byte = (byte << 1) | bit; 
@@ -153,7 +165,7 @@ export class WaveFileReader {
             // See: http://mirrors.apple2.org.za/ground.icaen.uiowa.edu/MiscInfo/Programming/cassette.format
         }, 0xFF);
 
-        console.log(realBytes, checksum, computedChecksum);
+        console.log(realBytes, realBytes.length, bits.length, checksum, computedChecksum);
 
         console.log(this.dec2bin(checksum), this.dec2bin(computedChecksum));
         if (checksum !== computedChecksum) {
@@ -169,9 +181,9 @@ export class WaveFileReader {
         })?.[0];
         const startKey = parseInt(startRange ?? '0');
 
-        // return 385147;
+        return 385125 + 24;
 
-        return startKey + 28;
+        return startKey + 24;
     }
 
     private readProgramLength() {
