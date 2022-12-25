@@ -12,8 +12,6 @@ export class WaveFileReader {
 
     private currentState: SignalState = 'high';
     private lastCrossingTime = 0;
-    private currentFrequency: number = 0;
-    private lastFrequency?: number = undefined;
     private optimizedFrequencyMap: Record<number, number> = {};
     private sampleRate = 48_000;
     private lastSignal = 0;
@@ -33,8 +31,6 @@ export class WaveFileReader {
     }
 
     private getData(time: number) {
-        // const buffer = Buffer.alloc(this.getDataLength());
-        // this.data.copy(buffer, 0, 0x2c, buffer.length - 0x2c);
         if ((time + 0x2c) >= this.data.length) {
             return 0;
         }
@@ -101,7 +97,6 @@ export class WaveFileReader {
             }
             
             this.lastCrossingTime = fixedTime;
-            this.lastFrequency = frequency;
         }
 
         this.lastSignal = value;
@@ -110,12 +105,6 @@ export class WaveFileReader {
     getInferredFrequencyAtTime(time: number): number {
         const key = this.optimizedFrequencyMap[time];
         return this.frequencyMap[key];
-        // const keys = Object.keys(this.frequencyMap);
-        // const closestKey = _.minBy(keys, k => {
-        //     const parsed = parseInt(k);
-        //     return parsed > time ? Infinity : time - parsed
-        // });
-        // return closestKey ? this.frequencyMap[closestKey as any] : 0;
     }
 
     private dec2bin(dec: number) {
@@ -263,13 +252,6 @@ export class WaveFileReader {
                 }
             }
         }
-
-        // const keys = Object.keys(this.frequencyMap);
-        // const closestKey = _.minBy(keys, k => {
-        //     const parsed = parseInt(k);
-        //     return parsed > time ? Infinity : time - parsed
-        // });
-        // return closestKey ? this.frequencyMap[closestKey as any] : 0;
 
         this.optimizedFrequencyMap = map;
     }
