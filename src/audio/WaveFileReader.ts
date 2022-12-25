@@ -26,8 +26,6 @@ export class WaveFileReader {
 
         this.sampleRate = this.data.readUint16LE(0x18);
         console.log('sample rate', this.sampleRate);
-
-        console.log(this.data);
     }
 
     private getDataLength() {
@@ -64,35 +62,6 @@ export class WaveFileReader {
         return min;
     }
 
-    private interpolateData(time: number) {
-        if (_.isInteger(time)) {
-            return this.getData(time);
-        }
-
-        // find the value at the previous time step, and the next, and then compute the movement between them.
-        const prevTime = _.floor(time);
-        const nextTime = _.ceil(time);
-        const previous = this.getData(prevTime);
-        const next = this.getData(nextTime);
-
-        // Find the distance between them.
-        const distance = next - previous;
-        
-        // And now we add our fractional part of this distance
-        // If t is 1.5, and v = 10 at 1 and v = 20 and 2,
-        // we find a distance of 10, and thus 10 * 0.5 = 5,
-        // ergo we return 10 + 5 = 15.
-        // If t is 1.5, and v = 10 at 1 and v = -20 at 2,
-        // we find a distance of -30, and thus -30 * 0.5 = -15,
-        // ergo we return 10 + -15 = -5.
-        const fraction = time - prevTime;
-        const fractionalDistance = distance * fraction;
-
-        // console.log(time, previous, next, fraction, fractionalDistance);
-
-        return previous + fractionalDistance;
-    }
-
     private handleTimePoint(time: number) {
         const value = this.getData(time);
         const valueState: SignalState = value >= 0 ? 'high' : 'low'
@@ -120,13 +89,12 @@ export class WaveFileReader {
             const closest = this.getClosestFrequency(frequency);
 
             if (!isFinite(frequency)) {
-                // console.log('infinite frequency at ' + time, timeSinceLastCrossing, secondsBetweenCrossings);
                 return;
             }
 
             if (closest !== this.lastRecordedFrequency) {
                 const startOfWave = Math.ceil(this.sampleRate / (closest / 0.5)) - 1;
-                // console.log('start of wave was delta' + startOfWave, closest, time)
+                
                 const timeCandidate = time - startOfWave;
                 this.frequencyMap[timeCandidate > 0 ? timeCandidate : time] = closest;
                 this.lastRecordedFrequency = closest;
@@ -232,20 +200,10 @@ export class WaveFileReader {
             bits.push(isOne ? 1 : 0);
             const timeAdvancement = Math.ceil(this.sampleRate  * (inferredFrequency === 2000 ? 0.0005 : inferredFrequency === 1000 ? 0.001 : inferredFrequency === 12000 ? (0.001/12) : (0.001/6)));
             i += timeAdvancement;
-
-            // if (byteLength && (bits.length + 8) > (byteLength * 8)) {
-            //     console.log('Have read ' + bits.length + ' bits and therefore checking checksum');
-            //     break;
-            // }
-        }
-
-        if (bits.length % 8 !== 0) {
-            // throw new Error(`Expected to decode a multiple of 8 bits, but decoded ${bits.length} bits`);
         }
 
         const realBytes = this.getBytesFromBits(bits, byteLength);
-        console.log(realBytes, realBytes.data.length, 'basic' in realBytes ? realBytes.basic : 0, bits.length);
-
+        
         return realBytes;
     }
 
@@ -266,25 +224,15 @@ export class WaveFileReader {
     private readProgram() {
         const programLength = this.readProgramLength();
         console.log('PROGRAM IS OF LENGTH ' + programLength);
-        // 1 extra for the checksum
         const bytes = this.readBytes(this.getLengthStart(1), programLength);
 
-        console.log(bytes);
         return bytes;
     }
 
     private readProgramLength() {
-        // console.log('start', this.getLengthStart());
         const bytes = this.readBytes(this.getLengthStart(0)).data;
-
         const length = (bytes[1] << 8) | bytes[0];
-        // for(const byte of bytes.reverse().slice(0, 2)) {
-        //     console.log('appending ' + byte + ' to ' + length)
-        //     length = (length << 8) | byte;
-        // }
 
-        console.log(bytes, bytes.length);
-        console.log('Program is of length ' + length, length ^ 0xFFFFFF, this.dec2bin(length));
         return length;
     }
 
@@ -339,34 +287,8 @@ export class WaveFileReader {
 
         this.computeOptimizedFrequencyMap();
         
-    //     const freqs = Object.values(this.frequencyMap).reduce<any>((state, val) => {
-    //         return {
-    //             ...state,
-    //             [val]: (state[val] ?? 0) + 1
-    //         }
-    //     }, {});
-    //     console.log('freqs', freqs);
-    //     const sseLocations = Object.entries(this.frequencyMap).filter(e => e[1] === 770);
-    //    console.log('770s locs', sseLocations);
-
-        // const programLength = this.readProgramLength();
         const bytes = this.readProgram();
         this.writeBinaryDump(bytes);
-        // const intervalsPerStep = this.sampleRate * (targettedSampleRateMs / 1_000);
-        // for (let i = 0; i < dataLength - intervalsPerStep - 0x2c; i += intervalsPerStep) {
-        //     const value = this.getFrequencyAtTime(i, targettedSampleRateMs * 2);
-
-        //     if (value === 770 && state !== 'header') {
-        //         state = 'header';
-        //         console.log('Starting to hear header at ' + i +': ' +  value)
-        //     }
-
-        //     if (value === 2500 && state === 'header') {
-        //         state = 'sync_bit';
-        //         console.log('starting sync bit at ' + i + ': ' + value);
-        //     }
-
-        // }
     }
 
 }
