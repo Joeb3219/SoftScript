@@ -152,12 +152,59 @@ export class WaveFileReader {
         return (dec >>> 0).toString(2).padStart(8, '0');
       }
 
+    private validateChecksum(bytes: number[], checksum: number) {
+        const computedChecksum = bytes.reduce((state, byte) => {
+            return state ^ byte;
+            // Unlike most checksums, Apple uses 0xFF instead of 0x00.
+            // See: http://mirrors.apple2.org.za/ground.icaen.uiowa.edu/MiscInfo/Programming/cassette.format
+        }, 0xFF);
+
+        console.log(`Validating checksum`, this.dec2bin(checksum), this.dec2bin(computedChecksum));
+
+        if (checksum !== computedChecksum) {
+            throw new Error(`Computed checksum ${computedChecksum} does not match expected checksum ${checksum}`)
+        }
+    }
+
+    private convertBitsToBytes(bits: number[]): number[] {
+        return _.chunk(bits.slice(0, Math.floor(bits.length / 8) * 8), 8).map(groupBits => {
+            let byte = 0;
+            for (const bit of groupBits) {
+                byte = (byte << 1) | bit; 
+            }
+
+            return byte;
+        })
+    }
+
+    private getBytesFromBits(bits: number[], byteLength?: number): number[] {
+        if (byteLength) {
+            const bitsNeededForBasicAndChecksum = (byteLength + 2) * 8;
+            const bytes = this.convertBitsToBytes(bits.slice(0, bitsNeededForBasicAndChecksum));
+
+            const basicRealBytes = _.slice(bytes, 0, bytes.length - 1);
+            const basicChecksum = _.last(bytes) ?? 0;
+    
+            this.validateChecksum(basicRealBytes, basicChecksum);
+
+            // Read the first n bytes
+            return [];
+        } 
+
+        const bytes = this.convertBitsToBytes(bits);
+        const realBytes = _.slice(bytes, 0, bytes.length - 1);
+        const checksum = _.last(bytes) ?? 0;
+            
+        this.validateChecksum(realBytes, checksum);
+
+        return realBytes;
+    }
+
     // Reads the bytes starting at position until we end the stream
     // Throws an error if the checksum byte fails.
-    private readBytes(startingPosition: number, maxBits: number = Infinity): number[] {
+    private readBytes(startingPosition: number, byteLength?: number): number[] {
         let i = startingPosition;
         const bits: number[] = [];
-
 
         console.log('starting position', startingPosition);
         while (i < this.getDataLength()) {
@@ -177,42 +224,18 @@ export class WaveFileReader {
             const timeAdvancement = Math.ceil(this.sampleRate  * (inferredFrequency === 2000 ? 0.0005 : inferredFrequency === 1000 ? 0.001 : inferredFrequency === 12000 ? (0.001/12) : (0.001/6)));
             i += timeAdvancement;
 
-            if (bits.length >= maxBits) {
-                console.log('Have read ' + bits.length + ' bits and therefore exiting early');
-                break;
-            }
+            // if (byteLength && (bits.length + 8) > (byteLength * 8)) {
+            //     console.log('Have read ' + bits.length + ' bits and therefore checking checksum');
+            //     break;
+            // }
         }
-
-
 
         if (bits.length % 8 !== 0) {
             // throw new Error(`Expected to decode a multiple of 8 bits, but decoded ${bits.length} bits`);
         }
 
-        const bytes = _.chunk(bits.slice(0, Math.floor(bits.length / 8) * 8), 8).map(groupBits => {
-            let byte = 0;
-            for (const bit of groupBits) {
-                byte = (byte << 1) | bit; 
-            }
-
-            return byte;
-        })
-
-        const realBytes = _.slice(bytes, 0, bytes.length - 1);
-        const checksum = _.last(bytes) ?? 0;
-
-        const computedChecksum = realBytes.reduce((state, byte) => {
-            return state ^ byte;
-            // Unlike most checksums, Apple uses 0xFF instead of 0x00.
-            // See: http://mirrors.apple2.org.za/ground.icaen.uiowa.edu/MiscInfo/Programming/cassette.format
-        }, 0xFF);
-
-        console.log(realBytes, realBytes.length, bits.length, checksum, computedChecksum);
-
-        console.log(this.dec2bin(checksum), this.dec2bin(computedChecksum));
-        if (checksum !== computedChecksum) {
-            // throw new Error(`Expected checksum of ${checksum} but computed checksum of ${computedChecksum}`)
-        }
+        const realBytes = this.getBytesFromBits(bits, byteLength);
+        console.log(realBytes, realBytes.length, bits.length);
 
         return realBytes;
     }
@@ -235,7 +258,7 @@ export class WaveFileReader {
         const programLength = this.readProgramLength();
         console.log('PROGRAM IS OF LENGTH ' + programLength);
         // 1 extra for the checksum
-        const bytes = this.readBytes(this.getLengthStart(1))//, (programLength) * 8);
+        const bytes = this.readBytes(this.getLengthStart(1), programLength);
 
         console.log(bytes, bytes.length);
         return bytes;
