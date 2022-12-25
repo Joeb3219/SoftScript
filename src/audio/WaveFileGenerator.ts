@@ -96,25 +96,25 @@ export class WaveFileGenerator {
         const sounds: Sound[] = [
         {
             frequency: 770,
-            cycles: 3200
+            cycles: 2
         },
-        {
-            frequency: 2500,
-            cycles: 0.5
-        }, 
-        {
-            frequency: 2000,
-            cycles: 0.5
-        }, {
-            frequency: 2500,
-            cycles: 10.5
-        }, {
-            frequency: 2000,
-            cycles: 10.5
-        }, {
-            frequency: 770,
-            cycles: 3000
-        }
+        // {
+        //     frequency: 2500,
+        //     cycles: 0.5
+        // }, 
+        // {
+        //     frequency: 2000,
+        //     cycles: 0.5
+        // }, {
+        //     frequency: 2500,
+        //     cycles: 10.5
+        // }, {
+        //     frequency: 2000,
+        //     cycles: 10.5
+        // }, {
+        //     frequency: 770,
+        //     cycles: 3000
+        // }
     ]
 
         const data = sounds.reduce((state, s) => {

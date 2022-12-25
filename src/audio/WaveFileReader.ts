@@ -1,5 +1,5 @@
 import fs from 'fs';
-import _ from 'lodash';
+import _, { isInteger } from 'lodash';
 
 type SignalState = 'high' | 'low';
 
@@ -12,10 +12,12 @@ export class WaveFileReader {
     private lastCrossingTime = 0;
     private currentFrequency: number = 0;
     private lastFrequency?: number = undefined;
+    private optimizedFrequencyMap: Record<number, number> = {};
     private sampleRate = 48_000;
     private lastSignal = 0;
     private frequencyMap: FrequencyMap = {}; 
     private lastRecordedFrequency: number = 0;
+    private static _TIME_INCREMENT_INTERVAL = 1;
 
     constructor(path: string) {
         this.data = fs.readFileSync(path);
@@ -54,10 +56,39 @@ export class WaveFileReader {
         const min = _.minBy(knownFrequencyes, f => Math.abs(f - freq)) ?? 0;
         const dist = freq - min;
         if (dist > 250) {
-            return -1;
+            return freq;
         }
 
         return min;
+    }
+
+    private interpolateData(time: number) {
+        if (_.isInteger(time)) {
+            return this.getData(time);
+        }
+
+        // find the value at the previous time step, and the next, and then compute the movement between them.
+        const prevTime = _.floor(time);
+        const nextTime = _.ceil(time);
+        const previous = this.getData(prevTime);
+        const next = this.getData(nextTime);
+
+        // Find the distance between them.
+        const distance = next - previous;
+        
+        // And now we add our fractional part of this distance
+        // If t is 1.5, and v = 10 at 1 and v = 20 and 2,
+        // we find a distance of 10, and thus 10 * 0.5 = 5,
+        // ergo we return 10 + 5 = 15.
+        // If t is 1.5, and v = 10 at 1 and v = -20 at 2,
+        // we find a distance of -30, and thus -30 * 0.5 = -15,
+        // ergo we return 10 + -15 = -5.
+        const fraction = time - prevTime;
+        const fractionalDistance = distance * fraction;
+
+        // console.log(time, previous, next, fraction, fractionalDistance);
+
+        return previous + fractionalDistance;
     }
 
     private handleTimePoint(time: number) {
@@ -87,7 +118,7 @@ export class WaveFileReader {
             const closest = this.getClosestFrequency(frequency);
 
             if (!isFinite(frequency)) {
-                console.log('infinite frequency at ' + time, timeSinceLastCrossing, secondsBetweenCrossings);
+                // console.log('infinite frequency at ' + time, timeSinceLastCrossing, secondsBetweenCrossings);
                 return;
             }
 
@@ -107,12 +138,14 @@ export class WaveFileReader {
     }
 
     getInferredFrequencyAtTime(time: number): number {
-        const keys = Object.keys(this.frequencyMap);
-        const closestKey = _.minBy(keys, k => {
-            const parsed = parseInt(k);
-            return parsed > time ? Infinity : time - parsed
-        });
-        return closestKey ? this.frequencyMap[closestKey as any] : 0;
+        const key = this.optimizedFrequencyMap[time];
+        return this.frequencyMap[key];
+        // const keys = Object.keys(this.frequencyMap);
+        // const closestKey = _.minBy(keys, k => {
+        //     const parsed = parseInt(k);
+        //     return parsed > time ? Infinity : time - parsed
+        // });
+        // return closestKey ? this.frequencyMap[closestKey as any] : 0;
     }
 
     private dec2bin(dec: number) {
@@ -131,7 +164,7 @@ export class WaveFileReader {
             const inferredFrequency = this.getInferredFrequencyAtTime(i);
 
             if (inferredFrequency === 770 || inferredFrequency === -1 || inferredFrequency === 2500) {
-                console.log('found header frequency');
+                console.log('found header frequency', i);
                 break;
             }
 
@@ -140,9 +173,8 @@ export class WaveFileReader {
             }
 
             const isOne = inferredFrequency === 1000 || inferredFrequency === 6000;
-            bits.push(inferredFrequency === 1000 ? 1 : 0);
-            const timeAdvancement =  Math.ceil(this.sampleRate  * (inferredFrequency === 2000 ? 0.0005 : inferredFrequency === 1000 ? 0.001 : inferredFrequency === 12000 ? 0.012 : 0.006));
-            // console.log('advancing time by ', timeAdvancement, inferredFrequency);
+            bits.push(isOne ? 1 : 0);
+            const timeAdvancement = Math.ceil(this.sampleRate  * (inferredFrequency === 2000 ? 0.0005 : inferredFrequency === 1000 ? 0.001 : inferredFrequency === 12000 ? (0.001/12) : (0.001/6)));
             i += timeAdvancement;
 
             if (bits.length >= maxBits) {
@@ -195,10 +227,7 @@ export class WaveFileReader {
             if (entry[1] === 2500 && parseInt(entry[0]) >= afterKey) return true
         })?.[0];
         const startKey = parseInt(startRange ?? '0');
-
-        // 468 bytes
-        // return 385125 + 24;
-
+        
         return startKey + 24;
     }
 
@@ -207,10 +236,8 @@ export class WaveFileReader {
         console.log('PROGRAM IS OF LENGTH ' + programLength);
         // 1 extra for the checksum
         const bytes = this.readBytes(this.getLengthStart(1))//, (programLength) * 8);
-        const otherBytes = this.readBytes(this.getLengthStart(2))//, (programLength) * 8);
 
         console.log(bytes, bytes.length);
-        console.log(otherBytes, otherBytes.length);
         return bytes;
     }
 
@@ -235,6 +262,37 @@ export class WaveFileReader {
         fs.writeFileSync('/Users/joeb3219/Downloads/binary.dump', buff);
     }
 
+    private computeOptimizedFrequencyMap() {
+        const keys = Object.keys(this.frequencyMap);
+        const sortedKeys = _.sortBy(keys);
+        const map: Record<number, number> = {};
+        
+        let currentKeyIndex = 0;
+        const range = _.range(0, this.getDataLength())        
+        for (const i of range) {
+            while (true) {
+                const currentCandidateKey = parseInt(sortedKeys[currentKeyIndex]);
+                const nextCandidateKey = parseInt(sortedKeys[currentKeyIndex + 1]);    
+
+                if (nextCandidateKey < i) {
+                    currentKeyIndex ++;
+                } else {
+                    map[i] = currentCandidateKey;
+                    break;
+                }
+            }
+        }
+
+        // const keys = Object.keys(this.frequencyMap);
+        // const closestKey = _.minBy(keys, k => {
+        //     const parsed = parseInt(k);
+        //     return parsed > time ? Infinity : time - parsed
+        // });
+        // return closestKey ? this.frequencyMap[closestKey as any] : 0;
+
+        this.optimizedFrequencyMap = map;
+    }
+
     read() {
         this.frequencyMap = {};
         const targettedSampleRateMs = 25;
@@ -242,18 +300,21 @@ export class WaveFileReader {
         this.currentState = 'high';
         
         const dataLength = this.getDataLength();
-        for (let i = 0; i < dataLength; i ++) {
+        for (let i = 0; i < dataLength; i += WaveFileReader._TIME_INCREMENT_INTERVAL) {
             this.handleTimePoint(i);
         }
+
+        this.computeOptimizedFrequencyMap();
         
-        const freqs = Object.values(this.frequencyMap).reduce<any>((state, val) => {
-            return {
-                ...state,
-                [val]: (state[val] ?? 0) + 1
-            }
-        }, {});
-        console.log('freqs', freqs);
-    //    console.log(this.frequencyMap);
+    //     const freqs = Object.values(this.frequencyMap).reduce<any>((state, val) => {
+    //         return {
+    //             ...state,
+    //             [val]: (state[val] ?? 0) + 1
+    //         }
+    //     }, {});
+    //     console.log('freqs', freqs);
+    //     const sseLocations = Object.entries(this.frequencyMap).filter(e => e[1] === 770);
+    //    console.log('770s locs', sseLocations);
 
         // const programLength = this.readProgramLength();
         const bytes = this.readProgram();
