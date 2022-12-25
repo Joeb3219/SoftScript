@@ -274,5 +274,3 @@ export class WaveFileReader {
     }
 
 }
-
-type State = 'header' | 'sync_bit';
