@@ -1,5 +1,6 @@
 import fs from 'fs';
 import _, { isInteger } from 'lodash';
+import { ApplesoftDisassembler } from '../applesoft/ApplesoftDisassembler';
 
 type SignalState = 'high' | 'low';
 
@@ -271,6 +272,10 @@ export class WaveFileReader {
         
         const bytes = this.readProgram();
         this.writeBinaryDump(bytes);
+
+        const foo = 'basic' in bytes ? new ApplesoftDisassembler(bytes.basic) : undefined;
+        const disassm = foo?.disassemble();
+        console.log(disassm);
     }
 
 }
