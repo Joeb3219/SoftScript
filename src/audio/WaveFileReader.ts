@@ -5,6 +5,8 @@ type SignalState = 'high' | 'low';
 
 type FrequencyMap = Record<number, number>;
 
+type BasicAndDataStore = {data: number[] } | { data: number[]; basic: number[] };
+
 export class WaveFileReader {
     private data: Buffer;
 
@@ -177,7 +179,7 @@ export class WaveFileReader {
         })
     }
 
-    private getBytesFromBits(bits: number[], byteLength?: number): number[] {
+    private getBytesFromBits(bits: number[], byteLength?: number): BasicAndDataStore {
         if (byteLength) {
             const bitsNeededForBasicAndChecksum = (byteLength + 2) * 8;
             const bytes = this.convertBitsToBytes(bits.slice(0, bitsNeededForBasicAndChecksum));
@@ -187,8 +189,15 @@ export class WaveFileReader {
     
             this.validateChecksum(basicRealBytes, basicChecksum);
 
+            const dataBytes = this.convertBitsToBytes(bits.slice(bitsNeededForBasicAndChecksum + 5, bits.length));
+            const dataRealBytes = _.slice(dataBytes, 0, dataBytes.length - 1);
+            const dataChecksum = _.last(dataBytes) ?? 0;
+    
+            this.validateChecksum(dataRealBytes, dataChecksum);
+
+
             // Read the first n bytes
-            return [];
+            return { data: dataRealBytes, basic: basicRealBytes };
         } 
 
         const bytes = this.convertBitsToBytes(bits);
@@ -197,12 +206,12 @@ export class WaveFileReader {
             
         this.validateChecksum(realBytes, checksum);
 
-        return realBytes;
+        return { data: realBytes };
     }
 
     // Reads the bytes starting at position until we end the stream
     // Throws an error if the checksum byte fails.
-    private readBytes(startingPosition: number, byteLength?: number): number[] {
+    private readBytes(startingPosition: number, byteLength?: number): BasicAndDataStore {
         let i = startingPosition;
         const bits: number[] = [];
 
@@ -235,7 +244,7 @@ export class WaveFileReader {
         }
 
         const realBytes = this.getBytesFromBits(bits, byteLength);
-        console.log(realBytes, realBytes.length, bits.length);
+        console.log(realBytes, realBytes.data.length, 'basic' in realBytes ? realBytes.basic : 0, bits.length);
 
         return realBytes;
     }
@@ -260,13 +269,13 @@ export class WaveFileReader {
         // 1 extra for the checksum
         const bytes = this.readBytes(this.getLengthStart(1), programLength);
 
-        console.log(bytes, bytes.length);
+        console.log(bytes);
         return bytes;
     }
 
     private readProgramLength() {
         // console.log('start', this.getLengthStart());
-        const bytes = this.readBytes(this.getLengthStart(0));
+        const bytes = this.readBytes(this.getLengthStart(0)).data;
 
         const length = (bytes[1] << 8) | bytes[0];
         // for(const byte of bytes.reverse().slice(0, 2)) {
@@ -279,9 +288,10 @@ export class WaveFileReader {
         return length;
     }
 
-    private writeBinaryDump(bytes: number[]) {
-        const buff = Buffer.alloc(bytes.length);
-        bytes.forEach((b, idx) => buff.writeUInt8(b, idx));
+    private writeBinaryDump(bytes: BasicAndDataStore) {
+        const allBytes = [...bytes.data, ...('basic' in bytes ? bytes.basic : [])]
+        const buff = Buffer.alloc(allBytes.length);
+        allBytes.forEach((b, idx) => buff.writeUInt8(b, idx));
         fs.writeFileSync('/Users/joeb3219/Downloads/binary.dump', buff);
     }
 
