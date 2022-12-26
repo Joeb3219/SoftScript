@@ -230,10 +230,16 @@ export class WaveFileReader {
     }
 
     private writeBinaryDump(bytes: BasicAndDataStore) {
-        const allBytes = [...bytes.data, ...('basic' in bytes ? bytes.basic : [])]
-        const buff = Buffer.alloc(allBytes.length);
-        allBytes.forEach((b, idx) => buff.writeUInt8(b, idx));
-        fs.writeFileSync('/Users/joeb3219/Downloads/binary.dump', buff);
+        if ('basic' in bytes) {
+            const basicbuff = Buffer.alloc(bytes.basic.length);
+            bytes.basic.forEach((b, idx) => basicbuff.writeUInt8(b, idx));
+            fs.writeFileSync('/Users/joeb3219/Downloads/basic.dump', basicbuff);    
+        }
+
+        const databuff = Buffer.alloc(bytes.data.length);
+        bytes.data.forEach((b, idx) => databuff.writeUInt8(b, idx));
+        fs.writeFileSync('/Users/joeb3219/Downloads/data.dump', databuff);
+
     }
 
     private computeOptimizedFrequencyMap() {

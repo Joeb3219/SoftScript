@@ -5,6 +5,7 @@ import { ApplesoftAssembler } from "../applesoft/ApplesoftAssembler";
 type Sound = {
     frequency: number;
     cycles: number;
+    invert?: boolean;
 }
 
 export class WaveFileGenerator {
@@ -13,8 +14,6 @@ export class WaveFileGenerator {
     private numberChannels: number = 1;
     private bitsPerSample: number = 8;
     private dataSectionHeader: string = "data";
-
-    private freqCycleMemo: Record<string, Buffer> = {};
 
     constructor(private readonly program: string[]) {}
 
@@ -58,26 +57,16 @@ export class WaveFileGenerator {
         ]);
     }
 
-    generateOrCacheSound(sound: Sound): Buffer {
-        const key = `${sound.frequency}_${sound.cycles}`;
-        if (this.freqCycleMemo[key]) {
-            return this.freqCycleMemo[key];
-        }
-
-        return this.freqCycleMemo[key] = this.generateSound(sound);
-    }
-
     generateSound(sound: Sound): Buffer {
         const numSamples = Math.ceil(this.sampleRate / (sound.frequency / sound.cycles));
         const buffer = Buffer.alloc(numSamples * this.numberChannels * (this.bitsPerSample / 8));
-
-        
+        const startingOffset = sound.invert ? (Math.ceil(this.sampleRate / (sound.frequency / 0.5))) : 0;
 
         let offset = 0;
         for (let i = 0; i < numSamples; i ++) {
             const amplitude = 93;
 
-            const channel1 = ((Math.sin(sound.frequency * (2 * Math.PI) * (i / this.sampleRate))) * amplitude) + 128;
+            const channel1 = ((Math.sin(sound.frequency * (2 * Math.PI) * ((i + startingOffset) / this.sampleRate))) * amplitude) + 128;
 
             buffer.writeUInt8(channel1, offset);
             offset += (this.bitsPerSample / 8);
@@ -106,11 +95,11 @@ export class WaveFileGenerator {
         return buffer;
     }
 
-    writeLengthRecordBody(programLength: number): Buffer {
+    writeLengthRecordBody(programLength: number, shouldAutoRun: boolean = true): Buffer {
         const buffer = Buffer.alloc(4);
         buffer.writeUInt16LE(programLength, 0);
         // 0xD5 is the BASIC Auto-Run flag.
-        buffer.writeUInt8(0xD5, 2);
+        buffer.writeUInt8(shouldAutoRun ? 0xD5 : 0x00, 2);
 
         // Just get the first 3 bytes
         const checksum = this.computeChecksum([...buffer].slice(0, 3));
@@ -139,17 +128,18 @@ export class WaveFileGenerator {
         }))
     }
 
-    write(path: string) {
+    write(path: string, shouldAutoRun: boolean = true) {
         const assembler = new ApplesoftAssembler(this.program);
+        const dataBytes: number[] = [];
         const programBytes = assembler.assemble();
         const headerBuffer = this.writeLengthRecordBody(programBytes.length);
-        const programBuffer = this.writeProgramRecordBody(programBytes);
-        const dataBuffer = this.writeProgramRecordBody([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+        const programBuffer = this.writeProgramRecordBody([...programBytes]);
+        const dataBuffer = this.writeProgramRecordBody([...dataBytes]);
 
         const sounds: Sound[] = [
             {
                 frequency: 770,
-                cycles: 3000
+                cycles: 3080
             },
             {
                 frequency: 2500,
@@ -157,12 +147,13 @@ export class WaveFileGenerator {
             }, 
             {
                 frequency: 2000,
-                cycles: 0.5
+                cycles: 0.5,
+                invert: true
             }, 
             ...this.generateSoundsFromBuffer(headerBuffer),
             {
                 frequency: 770,
-                cycles: 3000
+                cycles: 3080
             },
             {
                 frequency: 2500,
@@ -170,7 +161,8 @@ export class WaveFileGenerator {
             }, 
             {
                 frequency: 2000,
-                cycles: 0.5
+                cycles: 0.5,
+                invert: true
             }, 
             ...this.generateSoundsFromBuffer(programBuffer),
             ...this.generateSoundsFromBuffer(dataBuffer, true),
@@ -184,8 +176,8 @@ export class WaveFileGenerator {
             }
         ]
 
-        const soundBuffers = sounds.map(sound => this.generateOrCacheSound(sound));
-        const buffer = Buffer.concat(soundBuffers);
+        const soundBuffer = Buffer.concat(sounds.map(sound => this.generateSound(sound)));
+        const buffer = Buffer.concat([this.getHeader(soundBuffer.length), soundBuffer]);
         fs.writeFileSync(path, buffer);
     }
 }
