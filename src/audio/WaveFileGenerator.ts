@@ -166,9 +166,12 @@ export class WaveFileGenerator {
         const assembler = new ApplesoftAssembler(this.program);
         const dataBytes: number[] = [];
         const programBytes = assembler.assemble();
-        const headerBuffer = this.writeLengthRecordBody(programBytes.length);
-        const programBuffer = this.writeProgramRecordBody([...programBytes]);
-        const dataBuffer = this.writeProgramRecordBody([...dataBytes]);
+        const headerBuffer = this.writeLengthRecordBody(
+            programBytes.length,
+            shouldAutoRun
+        );
+        const programBuffer = this.writeProgramRecordBody(programBytes);
+        const dataBuffer = this.writeProgramRecordBody(dataBytes);
 
         const sounds: Sound[] = [
             {
