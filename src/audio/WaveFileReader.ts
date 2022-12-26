@@ -148,6 +148,9 @@ export class WaveFileReader {
             this.validateChecksum(basicRealBytes, basicChecksum);
 
             const dataBytes = this.convertBitsToBytes(bits.slice(bitsNeededForBasicAndChecksum + 5, bits.length));
+            if (dataBytes.length === 0) {
+                return { basic: basicRealBytes, data: [] };
+            }
             const dataRealBytes = _.slice(dataBytes, 0, dataBytes.length - 1);
             const dataChecksum = _.last(dataBytes) ?? 0;
     

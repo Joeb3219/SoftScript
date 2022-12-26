@@ -1,5 +1,6 @@
 import fs from "fs";
 import _, { flatten } from "lodash";
+import { ApplesoftAssembler } from "../applesoft/ApplesoftAssembler";
 
 type Sound = {
     frequency: number;
@@ -13,7 +14,7 @@ export class WaveFileGenerator {
     private bitsPerSample: number = 8;
     private dataSectionHeader: string = "data";
 
-    constructor() {}
+    constructor(private readonly program: string[]) {}
 
     private getBufferWithString(bufferLength: number, contents: string): Buffer {
         const buffer = Buffer.alloc(bufferLength);
@@ -92,29 +93,95 @@ export class WaveFileGenerator {
         return buffer;
     }
 
+    computeChecksum(bytes: number[]): number {
+        return bytes.reduce((state, byte) => {
+            return state ^ byte;
+        }, 0xFF)
+    }
+
+    writeProgramRecordBody(programBytes: number[]): Buffer {
+        const buffer = Buffer.alloc(programBytes.length + 1);
+        for (let i = 0; i < programBytes.length; i ++) {
+            buffer.writeUInt8(programBytes[i], i);
+        }
+
+        // Just get the first n bytes
+        const checksum = this.computeChecksum([...buffer].slice(0, programBytes.length));
+
+        buffer.writeUint8(checksum, buffer.length - 1);
+
+        return buffer;
+    }
+
+    writeLengthRecordBody(programLength: number): Buffer {
+        const buffer = Buffer.alloc(4);
+        buffer.writeUInt16LE(programLength, 0);
+        // 0xD5 is the BASIC Auto-Run flag.
+        buffer.writeUInt8(0xD5, 2);
+
+        // Just get the first 3 bytes
+        const checksum = this.computeChecksum([...buffer].slice(0, 3));
+
+        buffer.writeUint8(checksum, 3);
+        return buffer;
+    }
+
+    private byteToBits(byte: number): number[] {
+        const bits = [];
+        for (let i = 0; i < 8; i ++) {
+            bits.push(byte & 0x1);
+            byte = byte >> 1;
+        }
+
+        return bits.reverse();
+    }
+
+    generateSoundsFromBuffer(buffer: Buffer): Sound[] {
+        const bytes = [...buffer];
+        const bits = bytes.flatMap(byte => this.byteToBits(byte));
+
+        return bits.map(bit => ({
+            frequency: bit === 1 ? 1000 : 2000,
+            cycles: 1
+        }))
+    }
+
     write(path: string) {
+        const assembler = new ApplesoftAssembler(this.program);
+        const programBytes = assembler.assemble();
+        const headerBuffer = this.writeLengthRecordBody(programBytes.length);
+        const programBuffer = this.writeProgramRecordBody(programBytes);
         const sounds: Sound[] = [
         {
             frequency: 770,
-            cycles: 2
+            cycles: 3000
         },
-        // {
-        //     frequency: 2500,
-        //     cycles: 0.5
-        // }, 
-        // {
-        //     frequency: 2000,
-        //     cycles: 0.5
-        // }, {
-        //     frequency: 2500,
-        //     cycles: 10.5
-        // }, {
-        //     frequency: 2000,
-        //     cycles: 10.5
-        // }, {
-        //     frequency: 770,
-        //     cycles: 3000
-        // }
+        {
+            frequency: 2500,
+            cycles: 0.5
+        }, 
+        {
+            frequency: 2000,
+            cycles: 0.5
+        }, 
+        ...this.generateSoundsFromBuffer(headerBuffer),
+        {
+            frequency: 770,
+            cycles: 3000
+        },
+        {
+            frequency: 2500,
+            cycles: 0.5
+        }, 
+        {
+            frequency: 2000,
+            cycles: 0.5
+        }, 
+        ...this.generateSoundsFromBuffer(programBuffer),
+        {
+            frequency: 770,
+            cycles: 3000
+        }
     ]
 
         const data = sounds.reduce((state, s) => {
