@@ -44,8 +44,6 @@ export class ApplesoftDisassembler {
             currentAddress = disassembled.nextInstructionAddress - 1;
         }
 
-        console.log(disassembledLines);
-
         return disassembledLines.slice(0, disassembledLines.length - 1);
     }
 }
