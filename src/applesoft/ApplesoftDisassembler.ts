@@ -36,11 +36,11 @@ export class ApplesoftDisassembler {
             const disassembled = this.disassembleLine(relevantBytes);
             disassembledLines.push(disassembled);
 
-            currentAddress = disassembled.nextInstructionAddress;
+            currentAddress = disassembled.nextInstructionAddress - 1;
         }
 
         console.log(disassembledLines);
 
-        return disassembledLines;
+        return disassembledLines.slice(0, disassembledLines.length - 1);
     }
 }
