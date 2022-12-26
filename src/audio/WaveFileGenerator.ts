@@ -14,6 +14,8 @@ export class WaveFileGenerator {
     private bitsPerSample: number = 8;
     private dataSectionHeader: string = "data";
 
+    private freqCycleMemo: Record<string, Buffer> = {};
+
     constructor(private readonly program: string[]) {}
 
     private getBufferWithString(bufferLength: number, contents: string): Buffer {
@@ -54,6 +56,15 @@ export class WaveFileGenerator {
             ...this.getBufferWithString(4, this.dataSectionHeader), // 36-39
             ...this.getBufferWithNumber(4, dataSizeBytes), // 40-43
         ]);
+    }
+
+    generateOrCacheSound(sound: Sound): Buffer {
+        const key = `${sound.frequency}_${sound.cycles}`;
+        if (this.freqCycleMemo[key]) {
+            return this.freqCycleMemo[key];
+        }
+
+        return this.freqCycleMemo[key] = this.generateSound(sound);
     }
 
     generateSound(sound: Sound): Buffer {
@@ -134,49 +145,47 @@ export class WaveFileGenerator {
         const headerBuffer = this.writeLengthRecordBody(programBytes.length);
         const programBuffer = this.writeProgramRecordBody(programBytes);
         const dataBuffer = this.writeProgramRecordBody([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
+
         const sounds: Sound[] = [
-        {
-            frequency: 770,
-            cycles: 3000
-        },
-        {
-            frequency: 2500,
-            cycles: 0.5
-        }, 
-        {
-            frequency: 2000,
-            cycles: 0.5
-        }, 
-        ...this.generateSoundsFromBuffer(headerBuffer),
-        {
-            frequency: 770,
-            cycles: 3000
-        },
-        {
-            frequency: 2500,
-            cycles: 0.5
-        }, 
-        {
-            frequency: 2000,
-            cycles: 0.5
-        }, 
-        ...this.generateSoundsFromBuffer(programBuffer),
-        ...this.generateSoundsFromBuffer(dataBuffer, true),
-        {
-            frequency: 2000,
-            cycles: 10
-        },
-        {
-            frequency: 770,
-            cycles: 10
-        }
-    ]
+            {
+                frequency: 770,
+                cycles: 3000
+            },
+            {
+                frequency: 2500,
+                cycles: 0.5
+            }, 
+            {
+                frequency: 2000,
+                cycles: 0.5
+            }, 
+            ...this.generateSoundsFromBuffer(headerBuffer),
+            {
+                frequency: 770,
+                cycles: 3000
+            },
+            {
+                frequency: 2500,
+                cycles: 0.5
+            }, 
+            {
+                frequency: 2000,
+                cycles: 0.5
+            }, 
+            ...this.generateSoundsFromBuffer(programBuffer),
+            ...this.generateSoundsFromBuffer(dataBuffer, true),
+            {
+                frequency: 2000,
+                cycles: 10
+            },
+            {
+                frequency: 770,
+                cycles: 10
+            }
+        ]
 
-        const data = sounds.reduce((state, s) => {
-            return Buffer.from([...state, ...this.generateSound(s)])
-        }, Buffer.alloc(0));
-
-        const buffer = Buffer.from([...this.getHeader(data.length + 50),...data,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128]);
+        const soundBuffers = sounds.map(sound => this.generateOrCacheSound(sound));
+        const buffer = Buffer.concat(soundBuffers);
         fs.writeFileSync(path, buffer);
     }
 }
