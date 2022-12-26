@@ -56,25 +56,7 @@ export class WaveFileGenerator {
         ]);
     }
 
-    private generateRandomData(numSamples: number): Buffer {
-        const buffer = Buffer.alloc(numSamples * this.numberChannels * (this.bitsPerSample / 8));
-
-        let offset = 0;
-        for (let i = 0; i < numSamples; i ++) {
-            const frequency = 770;
-            const amplitude = 93;
-
-            const channel1 = Math.round(((Math.sin(frequency * (2 * Math.PI) * (i / this.sampleRate))) * amplitude)) + 128;
-            
-            buffer.writeUInt8(channel1, offset);
-            offset += (this.bitsPerSample / 8);
-        }
-
-        return buffer;
-    }
-
     generateSound(sound: Sound): Buffer {
-        // const numSamples = Math.floor(this.sampleRate * 0.0013 * sound.cycles);
         const numSamples = Math.ceil(this.sampleRate / (sound.frequency / sound.cycles));
         const buffer = Buffer.alloc(numSamples * this.numberChannels * (this.bitsPerSample / 8));
 
@@ -136,12 +118,12 @@ export class WaveFileGenerator {
         return bits.reverse();
     }
 
-    generateSoundsFromBuffer(buffer: Buffer): Sound[] {
+    generateSoundsFromBuffer(buffer: Buffer, highFreq: boolean = false): Sound[] {
         const bytes = [...buffer];
         const bits = bytes.flatMap(byte => this.byteToBits(byte));
 
         return bits.map(bit => ({
-            frequency: bit === 1 ? 1000 : 2000,
+            frequency: bit === 1 ? (highFreq ? 6000 : 1000) : (highFreq ? 12000 : 2000),
             cycles: 1
         }))
     }
@@ -151,6 +133,7 @@ export class WaveFileGenerator {
         const programBytes = assembler.assemble();
         const headerBuffer = this.writeLengthRecordBody(programBytes.length);
         const programBuffer = this.writeProgramRecordBody(programBytes);
+        const dataBuffer = this.writeProgramRecordBody([0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
         const sounds: Sound[] = [
         {
             frequency: 770,
@@ -178,9 +161,14 @@ export class WaveFileGenerator {
             cycles: 0.5
         }, 
         ...this.generateSoundsFromBuffer(programBuffer),
+        ...this.generateSoundsFromBuffer(dataBuffer, true),
+        {
+            frequency: 2000,
+            cycles: 10
+        },
         {
             frequency: 770,
-            cycles: 3000
+            cycles: 10
         }
     ]
 
@@ -188,7 +176,7 @@ export class WaveFileGenerator {
             return Buffer.from([...state, ...this.generateSound(s)])
         }, Buffer.alloc(0));
 
-        const buffer = Buffer.from([...this.getHeader(data.length),...data]);
+        const buffer = Buffer.from([...this.getHeader(data.length + 50),...data,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128]);
         fs.writeFileSync(path, buffer);
     }
 }
