@@ -8,9 +8,11 @@ export class ApplesoftAssembler {
     constructor(private readonly lines: string[]) {}
 
     private assembleLine(currentAddress: number, line: string): number[] {
-        const parts = line.split(" ");
-        const [lineNumberStr, operation, ...dataStr] = parts;
+        const parts = line.match(/"[^"]*"|\S+/g);
+        const [lineNumberStr, ...dataStr] = parts ?? [];
         const lineNumber = lineNumberStr ? parseInt(lineNumberStr) : -1;
+
+        const isRem = dataStr[0]?.toLowerCase() === 'rem';
 
         if (
             lineNumber < 0 ||
@@ -19,25 +21,17 @@ export class ApplesoftAssembler {
             throw new Error(`Line number is invalid: ${lineNumber}`);
         }
 
-        const operationOpcode = Object.entries(
-            OpcodeToApplesoftInstructionMap
-        ).find((e) => e[1] === operation)?.[0];
+        const data = isRem ? [0xb2, 0x20, ...dataStr.slice(1).join(' ').split('').map(c => c.charCodeAt(0))] : dataStr.flatMap<number>(datum => {
+            const foundOpcode = Object.entries(OpcodeToApplesoftInstructionMap).find(e => e[1] === datum)?.[0];
 
-        if (!operationOpcode) {
-            throw new Error(`Operation is invalid: ${operation}`);
-        }
-
-        const data = dataStr
-            .join(" ")
-            .split("")
-            .map((c) => c.charCodeAt(0));
+            return foundOpcode ? [parseInt(foundOpcode)] : datum.split('').map(c => c.charCodeAt(0));
+        })
 
         // 2 bytes for the next instruction address,
         // 2 bytes for the line number
-        // 1 byte for the operation,
         // data.length bytes for the data,
         // and 1 byte for the 0x00 byte to end instruction.
-        const numBytes = 2 + 2 + 1 + data.length + 1;
+        const numBytes = 2 + 2 + data.length + 1;
         const buffer = Buffer.alloc(numBytes);
 
         const nextInstructionAddress = currentAddress + numBytes + 1;
@@ -45,9 +39,8 @@ export class ApplesoftAssembler {
         // Write all of the data byte by byte, just like it was meant to be.
         buffer.writeUint16LE(nextInstructionAddress, 0);
         buffer.writeUint16LE(lineNumber, 2);
-        buffer.writeUint8(parseInt(operationOpcode), 4);
         for (let i = 0; i < data.length; i++) {
-            buffer.writeUint8(data[i], 5 + i);
+            buffer.writeUint8(data[i], 4 + i);
         }
         buffer.writeUint8(0x00, numBytes - 1);
 
