@@ -11,8 +11,8 @@ import {
     VariableType,
 } from "../parser/AST.types";
 import { Parser } from "../parser/Parser";
-import _ from 'lodash';
-import fs from 'fs';
+import _ from "lodash";
+import fs from "fs";
 import { ApplesoftAssembler } from "../applesoft/ApplesoftAssembler";
 import { WaveFileGenerator } from "../audio/WaveFileGenerator";
 
@@ -30,9 +30,16 @@ type StackFrame = {
 type SubroutineEntry = FunctionTableEntry & {
     address?: number;
     returnVariableName?: string;
-}
+};
 
-const legalBasicVariables = _.range(0, 26).flatMap(first => _.range(0, 26).map(second => `${String.fromCharCode('A'.charCodeAt(0) + first)}${String.fromCharCode('A'.charCodeAt(0) + second)}`))
+const legalBasicVariables = _.range(0, 26).flatMap((first) =>
+    _.range(0, 26).map(
+        (second) =>
+            `${String.fromCharCode(
+                "A".charCodeAt(0) + first
+            )}${String.fromCharCode("A".charCodeAt(0) + second)}`
+    )
+);
 
 export class BasicTarget {
     stackFrame: StackFrame;
@@ -54,7 +61,7 @@ export class BasicTarget {
 
     private getNextFreeVariable() {
         const nextVariable = legalBasicVariables[this.nextVariableIndex];
-        this.nextVariableIndex ++;
+        this.nextVariableIndex++;
 
         return nextVariable;
     }
@@ -63,7 +70,10 @@ export class BasicTarget {
         frame: StackFrame,
         identifier: ASTNodeIdentifier | string
     ) {
-        const name = typeof identifier === 'string' ? identifier : identifier.token.lexeme;
+        const name =
+            typeof identifier === "string"
+                ? identifier
+                : identifier.token.lexeme;
         let currentFrame: StackFrame | null = frame;
         while (currentFrame) {
             if (currentFrame.variables[name]) {
@@ -83,11 +93,11 @@ export class BasicTarget {
             this.transpileExpression(frame, arg.value)
         );
 
-        this.emitStatement(`REM FN CALL: '${fnName}'`)
+        this.emitStatement(`REM FN CALL: '${fnName}'`);
 
         switch (fnName) {
             case "print":
-                this.emitStatement(`PRINT ${transpiledArgs.join(',')}`)
+                this.emitStatement(`PRINT ${transpiledArgs.join(",")}`);
                 return null;
             default:
                 const fnEntry = this.functionTable[fnName];
@@ -106,14 +116,23 @@ export class BasicTarget {
                 transpiledArgs.forEach((arg, idx) => {
                     const param = fnEntry.parameters[idx];
 
-                    const variableState = this.findVariableState(frame, param.identifier);
+                    const variableState = this.findVariableState(
+                        frame,
+                        param.identifier
+                    );
                     frame.variables[param.identifier] = {
                         name: param.identifier,
                         type: param.type,
-                        resolvedName: variableState?.resolvedName ?? this.getNextFreeVariable(),
-                    }
+                        resolvedName:
+                            variableState?.resolvedName ??
+                            this.getNextFreeVariable(),
+                    };
 
-                    this.emitStatement(`LET ${frame.variables[param.identifier].resolvedName} = ${arg}`)
+                    this.emitStatement(
+                        `LET ${
+                            frame.variables[param.identifier].resolvedName
+                        } = ${arg}`
+                    );
                 });
 
                 this.emitStatement(`GOSUB ${fnEntry.address}`);
@@ -142,8 +161,9 @@ export class BasicTarget {
                     );
                 }
 
-                
-                this.emitStatement(`LET ${variableState.resolvedName} = ${transpiledExpression}`)
+                this.emitStatement(
+                    `LET ${variableState.resolvedName} = ${transpiledExpression}`
+                );
 
                 return variableState.resolvedName;
             }
@@ -186,12 +206,16 @@ export class BasicTarget {
                 const fnEntry = this.functionTable[frame.name];
 
                 if (!fnEntry) {
-                    throw new Error('Return statement outside of a function');
+                    throw new Error("Return statement outside of a function");
                 }
 
                 if (fnEntry.returnVariableName) {
-                    this.emitStatement(`REM Return value assigned to return variable`)
-                    this.emitStatement(`LET ${fnEntry.returnVariableName} = ${expressionResult}`);
+                    this.emitStatement(
+                        `REM Return value assigned to return variable`
+                    );
+                    this.emitStatement(
+                        `LET ${fnEntry.returnVariableName} = ${expressionResult}`
+                    );
                 }
 
                 this.emitStatement(`RETURN`);
@@ -210,19 +234,29 @@ export class BasicTarget {
                 const resultVariable = this.getNextFreeVariable();
                 switch (expression.value.variant) {
                     case "add":
-                        this.emitStatement(`LET ${resultVariable} = ${left} + ${right}`)
+                        this.emitStatement(
+                            `LET ${resultVariable} = ${left} + ${right}`
+                        );
                         return resultVariable;
                     case "subtract":
-                        this.emitStatement(`LET ${resultVariable} = ${left} - ${right}`)
+                        this.emitStatement(
+                            `LET ${resultVariable} = ${left} - ${right}`
+                        );
                         return resultVariable;
                     case "multiply":
-                        this.emitStatement(`LET ${resultVariable} = ${left} * ${right}`)
+                        this.emitStatement(
+                            `LET ${resultVariable} = ${left} * ${right}`
+                        );
                         return resultVariable;
                     case "power":
-                        this.emitStatement(`LET ${resultVariable} = ${left} ^ ${right}`)
+                        this.emitStatement(
+                            `LET ${resultVariable} = ${left} ^ ${right}`
+                        );
                         return resultVariable;
                     case "divide":
-                        this.emitStatement(`LET ${resultVariable} = ${left} / ${right}`)
+                        this.emitStatement(
+                            `LET ${resultVariable} = ${left} / ${right}`
+                        );
                         return resultVariable;
                 }
             }
@@ -232,10 +266,7 @@ export class BasicTarget {
         }
     }
 
-    transpileStatement(
-        frame: StackFrame,
-        statement: ASTNodeStatement
-    ) {
+    transpileStatement(frame: StackFrame, statement: ASTNodeStatement) {
         switch (statement.value.type) {
             case "expression":
                 this.transpileExpression(frame, statement.value);
@@ -246,43 +277,51 @@ export class BasicTarget {
                 frame.variables[variableName] = {
                     resolvedName,
                     name: variableName,
-                    type: statement.value.paramType.whichType
+                    type: statement.value.paramType.whichType,
                 };
 
                 if (statement.value.initialValue) {
                     const expressionResult = this.transpileExpression(
                         frame,
                         statement.value.initialValue
-                    )
-                    this.emitStatement(`LET ${resolvedName} = ${expressionResult}`);
+                    );
+                    this.emitStatement(
+                        `LET ${resolvedName} = ${expressionResult}`
+                    );
                 } else {
-                    this.emitStatement(`LET ${resolvedName} = NIL`)
+                    this.emitStatement(`LET ${resolvedName} = NIL`);
                 }
 
                 return resolvedName;
-            case 'function_defnition':
-                const fnEntry = this.functionTable[statement.value.identifier.token.lexeme];
+            case "function_defnition":
+                const fnEntry =
+                    this.functionTable[statement.value.identifier.token.lexeme];
 
                 if (!fnEntry) {
-                    throw new Error('Internal fault')
+                    throw new Error("Internal fault");
                 }
 
-                fnEntry.parameters.forEach(param => {
+                fnEntry.parameters.forEach((param) => {
                     frame.variables[param.identifier] = {
                         name: param.identifier,
                         resolvedName: this.getNextFreeVariable(),
-                        type: param.type
-                    }
-                })
+                        type: param.type,
+                    };
+                });
 
                 fnEntry.returnVariableName = this.getNextFreeVariable();
-                const firstStatementAddy = this.emitStatement(`REM '${fnEntry.name}' FN`);
+                const firstStatementAddy = this.emitStatement(
+                    `REM '${fnEntry.name}' FN`
+                );
                 fnEntry.address = firstStatementAddy;
-                this.transpileStatements({
-                    name: fnEntry.name,
-                    parent: frame,
-                    variables: {}
-                }, statement.value.statements);
+                this.transpileStatements(
+                    {
+                        name: fnEntry.name,
+                        parent: frame,
+                        variables: {},
+                    },
+                    statement.value.statements
+                );
         }
     }
 
@@ -295,10 +334,17 @@ export class BasicTarget {
             const mostRecentStatement = this.basicStatements.length - 1;
             this.transpileStatement(frame, statement);
 
-            const firstNewStatement = this.basicStatements[mostRecentStatement + 1];
-            const firstNewAddy = firstNewStatement ? parseInt(firstNewStatement.split(' ')[0] ?? '0') : undefined;
-            
-            if (statement.value.type !== 'function_defnition' && firstRealStatement === undefined && firstNewAddy !== undefined) {
+            const firstNewStatement =
+                this.basicStatements[mostRecentStatement + 1];
+            const firstNewAddy = firstNewStatement
+                ? parseInt(firstNewStatement.split(" ")[0] ?? "0")
+                : undefined;
+
+            if (
+                statement.value.type !== "function_defnition" &&
+                firstRealStatement === undefined &&
+                firstNewAddy !== undefined
+            ) {
                 firstRealStatement = firstNewAddy;
             }
         }
@@ -308,7 +354,7 @@ export class BasicTarget {
 
     private emitStatement(statement: string): number {
         const instrNum = this.nextLineNumber;
-        const fullStatement = `${instrNum} ${statement}`
+        const fullStatement = `${instrNum} ${statement}`;
         this.basicStatements.push(fullStatement);
 
         this.nextLineNumber += 5;
@@ -325,14 +371,21 @@ export class BasicTarget {
         this.basicStatements = [];
         this.nextLineNumber = 5;
 
-        const firstAddy = this.transpileStatements(this.stackFrame, this.program.statements);
-        this.basicStatements = [`0 HOME`, `1 GOTO ${firstAddy}`, ...this.basicStatements];
+        const firstAddy = this.transpileStatements(
+            this.stackFrame,
+            this.program.statements
+        );
+        this.basicStatements = [
+            `0 HOME`,
+            `1 GOTO ${firstAddy}`,
+            ...this.basicStatements,
+        ];
 
-        if(path.toLowerCase().endsWith('.wav')) {
-            const waveGenerator = new WaveFileGenerator(this.basicStatements)
+        if (path.toLowerCase().endsWith(".wav")) {
+            const waveGenerator = new WaveFileGenerator(this.basicStatements);
             waveGenerator.write(path, false);
         } else {
-            fs.writeFileSync(path, this.basicStatements.join('\r\n'));
+            fs.writeFileSync(path, this.basicStatements.join("\r\n"));
         }
     }
 }

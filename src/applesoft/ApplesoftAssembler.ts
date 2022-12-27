@@ -12,7 +12,7 @@ export class ApplesoftAssembler {
         const [lineNumberStr, ...dataStr] = parts ?? [];
         const lineNumber = lineNumberStr ? parseInt(lineNumberStr) : -1;
 
-        const isRem = dataStr[0]?.toLowerCase() === 'rem';
+        const isRem = dataStr[0]?.toLowerCase() === "rem";
 
         if (
             lineNumber < 0 ||
@@ -21,11 +21,25 @@ export class ApplesoftAssembler {
             throw new Error(`Line number is invalid: ${lineNumber}`);
         }
 
-        const data = isRem ? [0xb2, 0x20, ...dataStr.slice(1).join(' ').split('').map(c => c.charCodeAt(0))] : dataStr.flatMap<number>(datum => {
-            const foundOpcode = Object.entries(OpcodeToApplesoftInstructionMap).find(e => e[1] === datum)?.[0];
+        const data = isRem
+            ? [
+                  0xb2,
+                  0x20,
+                  ...dataStr
+                      .slice(1)
+                      .join(" ")
+                      .split("")
+                      .map((c) => c.charCodeAt(0)),
+              ]
+            : dataStr.flatMap<number>((datum) => {
+                  const foundOpcode = Object.entries(
+                      OpcodeToApplesoftInstructionMap
+                  ).find((e) => e[1] === datum)?.[0];
 
-            return foundOpcode ? [parseInt(foundOpcode)] : datum.split('').map(c => c.charCodeAt(0));
-        })
+                  return foundOpcode
+                      ? [parseInt(foundOpcode)]
+                      : datum.split("").map((c) => c.charCodeAt(0));
+              });
 
         // 2 bytes for the next instruction address,
         // 2 bytes for the line number
