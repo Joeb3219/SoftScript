@@ -1,3 +1,5 @@
+// The mapping of numerical values and the Opcode string.
+// Obtained from http://mirrors.apple2.org.za/apple.cabi.net/Languages.Programming/BASIC.keywords.tokens.txt
 export const OpcodeToApplesoftInstructionMap = {
     0x80: "END",
     0x81: "FOR",
