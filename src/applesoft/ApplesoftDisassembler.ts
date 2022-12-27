@@ -3,7 +3,6 @@ import { OpcodeToApplesoftInstructionMap } from "./Applesoft.types";
 type ApplesoftLine = {
     nextInstructionAddress: number;
     line: number;
-    token: string;
     dataBytes: number[];
     dataString: string;
 };
@@ -12,20 +11,23 @@ export class ApplesoftDisassembler {
     constructor(private readonly bytes: number[]) {}
 
     private disassembleLine(bytes: number[]): ApplesoftLine {
-        const dataBytes = bytes.slice(5, bytes.length - 2);
-        const tokenByte = bytes[4];
+        const dataBytes = bytes.slice(4, bytes.length - 2);
 
         return {
             dataBytes,
             nextInstructionAddress: (bytes[1] << 8) | bytes[0],
             line: (bytes[3] << 8) | bytes[2],
-            token:
-                tokenByte in OpcodeToApplesoftInstructionMap
-                    ? OpcodeToApplesoftInstructionMap[
-                          tokenByte as keyof typeof OpcodeToApplesoftInstructionMap
-                      ]
-                    : "",
-            dataString: dataBytes.map((c) => String.fromCharCode(c)).join(""),
+            dataString: dataBytes
+                .map((c) => {
+                    const opCode =
+                        OpcodeToApplesoftInstructionMap[
+                            c as keyof typeof OpcodeToApplesoftInstructionMap
+                        ];
+                    return opCode ? ` ${opCode} ` : String.fromCharCode(c);
+                })
+                .join("")
+                .replace("  ", " ")
+                .trim(),
         };
     }
 
