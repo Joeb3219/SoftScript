@@ -13,7 +13,7 @@ export class ApplesoftAssembler {
     constructor(private readonly lines: string[]) {}
 
     // Converts a single line and address to the encoded representation of the instruction.
-    assembleLine(currentAddress: number, line: string): number[] {
+    private assembleLine(currentAddress: number, line: string): number[] {
         // Split string by whitespace, unless the substring is enclosed within quotes.
         const parts = line.match(/"[^"]*"|\S+/g);
         const [lineNumberStr, ...dataStr] = parts ?? [];
