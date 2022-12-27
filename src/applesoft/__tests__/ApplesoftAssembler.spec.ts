@@ -30,5 +30,19 @@ describe("ApplesoftAssembler", () => {
             const result = assembler.assemble();
             expect(result).toMatchSnapshot();
         });
+
+        it("should throw an error when given a negative line number", () => {
+            const assembler = new ApplesoftAssembler([
+                `-10 LET X$ = "some value"`,
+            ]);
+            expect(assembler.assemble).toThrowError();
+        });
+
+        it("should throw an error when given a line number that is too big", () => {
+            const assembler = new ApplesoftAssembler([
+                `999999999 LET X$ = "some value"`,
+            ]);
+            expect(assembler.assemble).toThrowError();
+        });
     });
 });
