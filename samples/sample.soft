@@ -1,10 +1,16 @@
 function foo(a: number, b: number): number {
     const x: number = a * a;
     const y: number = b * b;
+    print(x);
+    print(y);
     return x + y;
 }
 
 const x: number = 4;
 const y: number = 80;
 const z: number = foo(x, y);
+
+print(x);
+print(y);
+print(z);
 print(z);

@@ -13,6 +13,8 @@ import {
 import { Parser } from "../parser/Parser";
 import _ from 'lodash';
 import fs from 'fs';
+import { ApplesoftAssembler } from "../applesoft/ApplesoftAssembler";
+import { WaveFileGenerator } from "../audio/WaveFileGenerator";
 
 type VariableStateEntry = {
     name: string;
@@ -326,6 +328,11 @@ export class BasicTarget {
         const firstAddy = this.transpileStatements(this.stackFrame, this.program.statements);
         this.basicStatements = [`0 HOME`, `1 GOTO ${firstAddy}`, ...this.basicStatements];
 
-        fs.writeFileSync(path, this.basicStatements.join('\r\n'));
+        if(path.toLowerCase().endsWith('.wav')) {
+            const waveGenerator = new WaveFileGenerator(this.basicStatements)
+            waveGenerator.write(path, false);
+        } else {
+            fs.writeFileSync(path, this.basicStatements.join('\r\n'));
+        }
     }
 }
