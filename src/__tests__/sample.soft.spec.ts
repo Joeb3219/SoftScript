@@ -44,7 +44,7 @@ describe("sample.soft", () => {
         const f = fs.readFileSync("/Users/joeb3219/Downloads/out_my.txt");
         const foo = new ApplesoftDisassembler([...f]);
         const x = foo.disassemble();
-        console.log(x.map((x) => `${x.line} ${x.dataString}`));
+        console.log(x.map((x) => x.fullInstruction));
         expect(x).toEqual(0);
     });
 
