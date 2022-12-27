@@ -19,6 +19,7 @@
     },
     "devDependencies": {
         "prettier": "^2.8.1",
+        "prettier-plugin-organize-imports": "^3.2.1",
         "ts-node": "^10.9.1"
     }
 }

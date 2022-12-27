@@ -1,5 +1,5 @@
 import fs from "fs";
-import _, { isInteger } from "lodash";
+import _ from "lodash";
 import { ApplesoftDisassembler } from "../applesoft/ApplesoftDisassembler";
 
 type SignalState = "high" | "low";

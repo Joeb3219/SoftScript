@@ -1,3 +1,6 @@
+import fs from "fs";
+import _ from "lodash";
+import { WaveFileGenerator } from "../audio/WaveFileGenerator";
 import {
     ASTNodeExpression,
     ASTNodeExpressionNonMath,
@@ -6,15 +9,10 @@ import {
     ASTNodeProgram,
     ASTNodeRoot,
     ASTNodeStatement,
-    FunctionTable,
     FunctionTableEntry,
     VariableType,
 } from "../parser/AST.types";
 import { Parser } from "../parser/Parser";
-import _ from "lodash";
-import fs from "fs";
-import { ApplesoftAssembler } from "../applesoft/ApplesoftAssembler";
-import { WaveFileGenerator } from "../audio/WaveFileGenerator";
 
 type VariableStateEntry = {
     name: string;

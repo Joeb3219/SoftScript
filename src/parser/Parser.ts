@@ -1,4 +1,3 @@
-import exp from "constants";
 import _ from "lodash";
 import {
     ASTNodeArgument,
@@ -20,7 +19,6 @@ import {
     FunctionTable,
     FunctionTableEntry,
     Variable,
-    VariableType,
 } from "./AST.types";
 import { Token, TokenType } from "./Token.types";
 

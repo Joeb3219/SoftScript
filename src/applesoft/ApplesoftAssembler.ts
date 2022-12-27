@@ -1,5 +1,4 @@
 import { OpcodeToApplesoftInstructionMap } from "./Applesoft.types";
-import fs from "fs";
 
 export class ApplesoftAssembler {
     // The maximum line number permissable by AppleSoft Basic.

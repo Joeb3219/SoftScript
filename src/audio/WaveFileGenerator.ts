@@ -1,5 +1,4 @@
 import fs from "fs";
-import _, { flatten } from "lodash";
 import { ApplesoftAssembler } from "../applesoft/ApplesoftAssembler";
 
 type Sound = {

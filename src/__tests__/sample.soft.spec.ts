@@ -1,4 +1,5 @@
-import { describe, it, expect } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
+import fs from "fs";
 import _ from "lodash";
 import { ApplesoftAssembler } from "../applesoft/ApplesoftAssembler";
 import { ApplesoftDisassembler } from "../applesoft/ApplesoftDisassembler";
@@ -7,8 +8,6 @@ import { WaveFileReader } from "../audio/WaveFileReader";
 import { Lexer } from "../parser/Lexer";
 import { Parser } from "../parser/Parser";
 import { BasicTarget } from "../targets/BasicTarget";
-import { EvaluatorTarget } from "../targets/EvaluatorTarget";
-import fs from "fs";
 
 describe("sample.soft", () => {
     it("should work", () => {
