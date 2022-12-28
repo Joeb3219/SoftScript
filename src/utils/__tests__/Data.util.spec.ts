@@ -131,4 +131,25 @@ describe("Data.util", () => {
             expect(result).toEqual([0xb6, 0x2c]);
         });
     });
+
+    describe("bitsToBytesAndValidateChecksum", () => {
+        it("should return the bytes if the checksum passes", () => {
+            const result = DataUtil.bitsToBytesAndValidateChecksum([
+                1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0,
+                // checksum
+                0, 1, 1, 0, 0, 1, 0, 1,
+            ]);
+            expect(result).toEqual([0xb6, 0x2c]);
+        });
+
+        it("should throw an error if the checksum fails", () => {
+            const generator = () =>
+                DataUtil.bitsToBytesAndValidateChecksum([
+                    1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0,
+                    // checksum
+                    0, 1, 1, 0, 0, 1, 0, 0,
+                ]);
+            expect(generator).toThrowError();
+        });
+    });
 });

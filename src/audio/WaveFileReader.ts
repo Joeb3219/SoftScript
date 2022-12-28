@@ -34,6 +34,10 @@ export class WaveFileReader {
     // Used to resolve small differences in observed frequencies due to sampling issues.
     private static readonly _MAXIMUM_FREQUENCY_DIVERGENCE = 250;
 
+    // The number of bytes that comprise the WAVE header.
+    // All of our data reading of samples must be offset by this amount.
+    private static readonly _WAVE_HEADER_SIZE_BYTES = 44;
+
     // Data inferred from the file path about the wave file.
     private data: Buffer;
     private sampleRate: number;
@@ -75,10 +79,15 @@ export class WaveFileReader {
 
     // Given a sample number, finds the raw amplitude of the wave at that given sample, from -128 to 128.
     private getRawValueAtSample(sample: number): number {
-        if (sample + 0x2c >= this.data.length) {
+        if (
+            sample + WaveFileReader._WAVE_HEADER_SIZE_BYTES >=
+            this.data.length
+        ) {
             return 0;
         }
-        const data = this.data.readInt8(0x2c + sample);
+        const data = this.data.readInt8(
+            WaveFileReader._WAVE_HEADER_SIZE_BYTES + sample
+        );
 
         // Fixes math issues arriving from UInt -> Int conversion.
         if (data < 0) {
