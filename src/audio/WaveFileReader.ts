@@ -4,6 +4,15 @@ import { DataUtil } from "../utils/Data.util";
 
 type SignalState = "high" | "low";
 
+type ZeroCrossingCounterState = {
+    signal: SignalState;
+    lastCrossingTime: number;
+    lastFrequency: number;
+    frequencyMap: FrequencyMap;
+    optimizedFrequencyMap: Record<number, number>;
+    lastRecordedFrequency: number;
+}
+
 type FrequencyMap = Record<number, number>;
 
 type BasicAndDataStore =
@@ -12,25 +21,30 @@ type BasicAndDataStore =
 
 export class WaveFileReader {
     private data: Buffer;
+    private sampleRate: number;
+    private numSamples: number;
 
-    private currentState: SignalState = "high";
-    private lastCrossingTime = 0;
-    private optimizedFrequencyMap: Record<number, number> = {};
-    private sampleRate = 48_000;
-    private lastSignal = 0;
-    private frequencyMap: FrequencyMap = {};
-    private lastRecordedFrequency: number = 0;
-    private static _TIME_INCREMENT_INTERVAL = 1;
+    zeroCrossingCounterState: ZeroCrossingCounterState;
 
     constructor(path: string) {
         this.data = fs.readFileSync(path);
 
         this.sampleRate = this.data.readUint16LE(0x18);
-        console.debug("WAVE file sample rate decoded", this.sampleRate);
+        this.numSamples = this.data.readUInt32LE(0x28)
+        console.debug("WAVE header parsed", { sampleRate: this.sampleRate, numSamples: this.numSamples });
+
+        this.zeroCrossingCounterState = this.getInitialZeroCrossingCounterState();
     }
 
-    private getDataLength() {
-        return this.data.readUInt32LE(40);
+    private getInitialZeroCrossingCounterState(): ZeroCrossingCounterState {
+        return {
+            frequencyMap: {},
+            optimizedFrequencyMap: {},
+            lastCrossingTime: 0,
+            lastFrequency: 0,
+            lastRecordedFrequency: 0,
+            signal: 'high'
+        }
     }
 
     private getData(time: number) {
@@ -66,26 +80,26 @@ export class WaveFileReader {
     private handleTimePoint(time: number) {
         const value = this.getData(time);
         const valueState: SignalState = value >= 0 ? "high" : "low";
-        if (this.currentState !== valueState) {
-            this.currentState = valueState;
+        if (this.zeroCrossingCounterState.signal !== valueState) {
+            this.zeroCrossingCounterState.signal = valueState;
 
             // Calculate the "real" crossing time.
             // If this point has crossed the border, the last one has, by definition, not.
             // Given a sampling rate of x, the crossing could have happened any time in the last 1/x seconds.
             // Thus, we determine how close between the previous value and the current value was, which is more likely when we crossed.
             // This works fine for regular single waves, but probably breaks for more complicated noise construction.
-            const totalDistance = value - this.lastSignal;
+            const totalDistance = value - this.zeroCrossingCounterState.lastFrequency;
             const distance = Math.abs(value / totalDistance);
             const fixedTime = time - distance;
 
-            const timeSinceLastCrossing = fixedTime - this.lastCrossingTime;
+            const timeSinceLastCrossing = fixedTime - this.zeroCrossingCounterState.lastCrossingTime;
 
             const secondsBetweenCrossings =
                 (2 * timeSinceLastCrossing) / this.sampleRate;
             const baseFrequency = 1 / secondsBetweenCrossings;
 
             const frequency = this.roundToNearest(
-                baseFrequency, //this.lastFrequency && isFinite(this.lastFrequency) ? (this.lastFrequency + baseFrequency) / 2 : baseFrequency
+                baseFrequency,
                 10
             );
 
@@ -95,25 +109,25 @@ export class WaveFileReader {
                 return;
             }
 
-            if (closest !== this.lastRecordedFrequency) {
+            if (closest !== this.zeroCrossingCounterState.lastRecordedFrequency) {
                 const startOfWave =
                     Math.ceil(this.sampleRate / (closest / 0.5)) - 1;
 
                 const timeCandidate = time - startOfWave;
-                this.frequencyMap[timeCandidate > 0 ? timeCandidate : time] =
+                this.zeroCrossingCounterState.frequencyMap[timeCandidate > 0 ? timeCandidate : time] =
                     closest;
-                this.lastRecordedFrequency = closest;
+                this.zeroCrossingCounterState.lastRecordedFrequency = closest;
             }
 
-            this.lastCrossingTime = fixedTime;
+            this.zeroCrossingCounterState.lastCrossingTime = fixedTime;
         }
 
-        this.lastSignal = value;
+        this.zeroCrossingCounterState.lastFrequency = value;
     }
 
     getInferredFrequencyAtTime(time: number): number {
-        const key = this.optimizedFrequencyMap[time];
-        return this.frequencyMap[key];
+        const key = this.zeroCrossingCounterState.optimizedFrequencyMap[time];
+        return this.zeroCrossingCounterState.frequencyMap[key];
     }
 
     private dec2bin(dec: number) {
@@ -198,7 +212,7 @@ export class WaveFileReader {
         const bits: number[] = [];
 
         console.debug("Reading bytes starting at sample", startingPosition);
-        while (i < this.getDataLength()) {
+        while (i < this.numSamples) {
             const inferredFrequency = this.getInferredFrequencyAtTime(i);
 
             if (
@@ -243,14 +257,14 @@ export class WaveFileReader {
     }
 
     private getLengthStart(which: number = 0) {
-        const headerKeys = Object.entries(this.frequencyMap)
+        const headerKeys = Object.entries(this.zeroCrossingCounterState.frequencyMap)
             .filter((entry) => {
                 if (entry[1] === 770) return true;
             })
             .map((entry) => parseInt(entry[0]));
 
         const afterKey = headerKeys[which];
-        const startRange = Object.entries(this.frequencyMap).find((entry) => {
+        const startRange = Object.entries(this.zeroCrossingCounterState.frequencyMap).find((entry) => {
             if (entry[1] === 2500 && parseInt(entry[0]) >= afterKey)
                 return true;
         })?.[0];
@@ -275,12 +289,12 @@ export class WaveFileReader {
     }
 
     private computeOptimizedFrequencyMap() {
-        const keys = Object.keys(this.frequencyMap);
+        const keys = Object.keys(this.zeroCrossingCounterState.frequencyMap);
         const sortedKeys = _.sortBy(keys);
         const map: Record<number, number> = {};
 
         let currentKeyIndex = 0;
-        const range = _.range(0, this.getDataLength());
+        const range = _.range(0, this.numSamples);
         for (const i of range) {
             while (true) {
                 const currentCandidateKey = parseInt(
@@ -299,28 +313,22 @@ export class WaveFileReader {
             }
         }
 
-        this.optimizedFrequencyMap = map;
+        this.zeroCrossingCounterState.optimizedFrequencyMap = map;
     }
 
     read() {
-        this.frequencyMap = {};
-        const targettedSampleRateMs = 25;
-        this.lastCrossingTime = 0;
-        this.currentState = "high";
+        this.zeroCrossingCounterState = this.getInitialZeroCrossingCounterState();
 
-        const dataLength = this.getDataLength();
         for (
-            let i = 0;
-            i < dataLength;
-            i += WaveFileReader._TIME_INCREMENT_INTERVAL
+            let sample = 0;
+            sample < this.numSamples;
+            sample ++
         ) {
-            this.handleTimePoint(i);
+            this.handleTimePoint(sample);
         }
 
         this.computeOptimizedFrequencyMap();
 
-        const bytes = this.readProgram();
-
-        return bytes;
+        return this.readProgram();
     }
 }
