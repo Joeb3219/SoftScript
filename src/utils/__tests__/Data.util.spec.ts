@@ -122,4 +122,11 @@ describe("Data.util", () => {
             expect(result).toEqual([1, 1, 0, 0, 1, 0, 1, 0]);
         });
     });
+
+    describe('bitsToBytes', () => {
+        it('should return the correct result', () => {
+            const result = DataUtil.bitsToBytes([1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0]);
+            expect(result).toEqual([0xB6, 0x2C]);
+        })
+    })
 });

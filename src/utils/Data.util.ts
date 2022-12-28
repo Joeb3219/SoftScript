@@ -1,3 +1,5 @@
+import _ from 'lodash';
+
 export class DataUtil {
     // Given an index, returns the two-byte value stored beginning at this address.
     // Assumes that bytes is a contigious block of little-endian bytes.
@@ -75,5 +77,60 @@ export class DataUtil {
         }
 
         return bits.reverse() as any;
+    }
+
+    // Given a number, converts it to a binary string with at least minNumBits digits.
+    // Used for debugging.
+    static decimalToBinaryString(dec: number, minNumBits: number = 8) {
+        return (dec >>> 0).toString(2).padStart(minNumBits, "0");
+    }
+
+    // Given a sequence of bytes and a checksum, validates that the bytes yield the same checksum.
+    // If the checksums do not match, an error is thrown.
+    static validateChecksum(bytes: number[], checksum: number) {
+        const computedChecksum = DataUtil.computeChecksum(bytes);
+
+        console.debug(
+            `Validating checksum`,
+            DataUtil.decimalToBinaryString(checksum),
+            DataUtil.decimalToBinaryString(computedChecksum)
+        );
+
+        if (checksum !== computedChecksum) {
+            throw new Error(
+                `Computed checksum ${computedChecksum} does not match expected checksum ${checksum}`
+            );
+        }
+    }
+
+    // Given an array of bits (strictly 1/0), converts them to bytes and returns the list of bytes.
+    // If there are more bits than a multiple of 8, the remaining bits are ignored.
+    // Bits are added to bytes most significant bit (MSB) first.
+    static bitsToBytes(bits: number[]): number[] {
+        return _.chunk(bits.slice(0, Math.floor(bits.length / 8) * 8), 8).map(
+            (groupBits) => {
+                let byte = 0;
+                for (const bit of groupBits) {
+                    byte = (byte << 1) | bit;
+                }
+
+                return byte;
+            }
+        );
+    }
+
+    // Given an array of bits, converts them to bytes, and then verifies that the first n - 1 bytes
+    // have the same checksum as the last byte.
+    static bitsToBytesAndValidateChecksum(bits: number[]): number[] {
+        const bytes = DataUtil.bitsToBytes(
+            bits
+        );
+
+        const dataBytes = _.slice(bytes, 0, bytes.length - 1);
+        const checksum = _.last(bytes) ?? 0;
+
+        DataUtil.validateChecksum(dataBytes, checksum);
+
+        return dataBytes;
     }
 }
