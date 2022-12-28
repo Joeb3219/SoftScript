@@ -4,7 +4,6 @@
     "main": "src/index.ts",
     "scripts": {
         "build": "tsc",
-        "parse:sample1": "yarn build && node ./dist/index parse ./samples/sample.soft",
         "lint": "prettier --write ."
     },
     "license": "MIT",
