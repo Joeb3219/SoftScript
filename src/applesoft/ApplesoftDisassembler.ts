@@ -83,10 +83,13 @@ export class ApplesoftDisassembler {
             // This _should_ happen after the last instruction is parsed:
             // the last two bytes should be 0x00 0x00, implying that the next instruction is null.
             if (address === 0 || instructionLength < 0) {
-                console.debug("Reached an invalid next address", {
-                    address,
-                    instructionLength,
-                });
+                console.debug(
+                    "Reached a next address that indicates end of disassembly",
+                    {
+                        address,
+                        instructionLength,
+                    }
+                );
                 break;
             }
 

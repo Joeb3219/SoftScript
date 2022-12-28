@@ -106,6 +106,10 @@ export class WaveFileGenerator {
     }
 
     writeProgramRecordBody(programBytes: number[]): Buffer {
+        if (programBytes.length === 0) {
+            return Buffer.alloc(0);
+        }
+
         const buffer = Buffer.alloc(programBytes.length + 1);
         for (let i = 0; i < programBytes.length; i++) {
             buffer.writeUInt8(programBytes[i], i);

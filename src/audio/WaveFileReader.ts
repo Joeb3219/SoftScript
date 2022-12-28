@@ -1,6 +1,5 @@
 import fs from "fs";
 import _ from "lodash";
-import { ApplesoftDisassembler } from "../applesoft/ApplesoftDisassembler";
 
 type SignalState = "high" | "low";
 
@@ -26,7 +25,7 @@ export class WaveFileReader {
         this.data = fs.readFileSync(path);
 
         this.sampleRate = this.data.readUint16LE(0x18);
-        console.log("sample rate", this.sampleRate);
+        console.debug("WAVE file sample rate decoded", this.sampleRate);
     }
 
     private getDataLength() {
@@ -127,7 +126,7 @@ export class WaveFileReader {
             // See: http://mirrors.apple2.org.za/ground.icaen.uiowa.edu/MiscInfo/Programming/cassette.format
         }, 0xff);
 
-        console.log(
+        console.debug(
             `Validating checksum`,
             this.dec2bin(checksum),
             this.dec2bin(computedChecksum)
@@ -201,7 +200,7 @@ export class WaveFileReader {
         let i = startingPosition;
         const bits: number[] = [];
 
-        console.log("starting position", startingPosition);
+        console.debug("Reading bytes starting at sample", startingPosition);
         while (i < this.getDataLength()) {
             const inferredFrequency = this.getInferredFrequencyAtTime(i);
 
@@ -210,7 +209,7 @@ export class WaveFileReader {
                 inferredFrequency === -1 ||
                 inferredFrequency === 2500
             ) {
-                console.log("found header frequency", i);
+                console.debug("Found header frequency at sample", i);
                 break;
             }
 
@@ -221,7 +220,7 @@ export class WaveFileReader {
                 inferredFrequency !== 6000
             ) {
                 throw new Error(
-                    `Found unexpected frequency when parsing bit: ${inferredFrequency}`
+                    `Found unexpected frequency when parsing bit: ${inferredFrequency} at sample ${i}`
                 );
             }
 
@@ -265,7 +264,7 @@ export class WaveFileReader {
 
     private readProgram() {
         const programLength = this.readProgramLength();
-        console.log("PROGRAM IS OF LENGTH " + programLength);
+        console.debug("Program is of length", programLength);
         const bytes = this.readBytes(this.getLengthStart(1), programLength);
 
         return bytes;
@@ -276,18 +275,6 @@ export class WaveFileReader {
         const length = (bytes[1] << 8) | bytes[0];
 
         return length;
-    }
-
-    private writeBinaryDump(bytes: BasicAndDataStore) {
-        if ("basic" in bytes) {
-            const basicbuff = Buffer.alloc(bytes.basic.length);
-            bytes.basic.forEach((b, idx) => basicbuff.writeUInt8(b, idx));
-            fs.writeFileSync("/Users/joeb3219/Downloads/basic.dump", basicbuff);
-        }
-
-        const databuff = Buffer.alloc(bytes.data.length);
-        bytes.data.forEach((b, idx) => databuff.writeUInt8(b, idx));
-        fs.writeFileSync("/Users/joeb3219/Downloads/data.dump", databuff);
     }
 
     private computeOptimizedFrequencyMap() {
@@ -336,13 +323,7 @@ export class WaveFileReader {
         this.computeOptimizedFrequencyMap();
 
         const bytes = this.readProgram();
-        this.writeBinaryDump(bytes);
 
-        const foo =
-            "basic" in bytes
-                ? new ApplesoftDisassembler(bytes.basic)
-                : undefined;
-        const disassm = foo?.disassemble();
-        console.log(disassm);
+        return bytes;
     }
 }
