@@ -123,10 +123,12 @@ describe("Data.util", () => {
         });
     });
 
-    describe('bitsToBytes', () => {
-        it('should return the correct result', () => {
-            const result = DataUtil.bitsToBytes([1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0]);
-            expect(result).toEqual([0xB6, 0x2C]);
-        })
-    })
+    describe("bitsToBytes", () => {
+        it("should return the correct result", () => {
+            const result = DataUtil.bitsToBytes([
+                1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0,
+            ]);
+            expect(result).toEqual([0xb6, 0x2c]);
+        });
+    });
 });

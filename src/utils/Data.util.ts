@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import _ from "lodash";
 
 export class DataUtil {
     // Given an index, returns the two-byte value stored beginning at this address.
@@ -122,9 +122,7 @@ export class DataUtil {
     // Given an array of bits, converts them to bytes, and then verifies that the first n - 1 bytes
     // have the same checksum as the last byte.
     static bitsToBytesAndValidateChecksum(bits: number[]): number[] {
-        const bytes = DataUtil.bitsToBytes(
-            bits
-        );
+        const bytes = DataUtil.bitsToBytes(bits);
 
         const dataBytes = _.slice(bytes, 0, bytes.length - 1);
         const checksum = _.last(bytes) ?? 0;

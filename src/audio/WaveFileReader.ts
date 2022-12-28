@@ -11,7 +11,7 @@ type ZeroCrossingCounterState = {
     frequencyMap: FrequencyMap;
     optimizedFrequencyMap: Record<number, number>;
     lastRecordedFrequency: number;
-}
+};
 
 type FrequencyMap = Record<number, number>;
 
@@ -48,11 +48,14 @@ export class WaveFileReader {
     constructor(path: string) {
         this.data = fs.readFileSync(path);
 
-        // For specifics on these fields and how they're stored, 
+        // For specifics on these fields and how they're stored,
         // see either WaveFileGenerator or http://soundfile.sapp.org/doc/WaveFormat/
         this.sampleRate = this.data.readUint16LE(0x18);
-        this.numSamples = this.data.readUInt32LE(0x28)
-        console.debug("WAVE header parsed", { sampleRate: this.sampleRate, numSamples: this.numSamples });
+        this.numSamples = this.data.readUInt32LE(0x28);
+        console.debug("WAVE header parsed", {
+            sampleRate: this.sampleRate,
+            numSamples: this.numSamples,
+        });
 
         this.zeroCrossingCounterState = this.getInitialZeroCrossingCounterState;
     }
@@ -66,8 +69,8 @@ export class WaveFileReader {
             lastCrossingTime: 0,
             lastFrequency: 0,
             lastRecordedFrequency: 0,
-            signal: 'high'
-        }
+            signal: "high",
+        };
     }
 
     // Given a sample number, finds the raw amplitude of the wave at that given sample, from -128 to 128.
@@ -76,6 +79,8 @@ export class WaveFileReader {
             return 0;
         }
         const data = this.data.readInt8(0x2c + sample);
+
+        // Fixes math issues arriving from UInt -> Int conversion.
         if (data < 0) {
             return (128 + data) * -1;
         } else {
@@ -90,7 +95,12 @@ export class WaveFileReader {
     // If no closest frequency can be found, we return the frequency as it was observed.
     private getClosestKnownFrequency(freq: number): number {
         const knownFrequencyes: number[] = [
-            WaveFileReader._FREQUENCY_LEADER, WaveFileReader._FREQUENCY_ZERO_LOW_FREQUENCY, WaveFileReader._FREQUENCY_SYNC_BIT, WaveFileReader._FREQUENCY_ONE_LOW_FREQUENCY, WaveFileReader._FREQUENCY_ZERO_HIGH_FREQUENCY, WaveFileReader._FREQUENCY_ONE_HIGH_FREQUENCY,
+            WaveFileReader._FREQUENCY_LEADER,
+            WaveFileReader._FREQUENCY_ZERO_LOW_FREQUENCY,
+            WaveFileReader._FREQUENCY_SYNC_BIT,
+            WaveFileReader._FREQUENCY_ONE_LOW_FREQUENCY,
+            WaveFileReader._FREQUENCY_ZERO_HIGH_FREQUENCY,
+            WaveFileReader._FREQUENCY_ONE_HIGH_FREQUENCY,
         ];
 
         // Find the closest frequency by absolute value
@@ -106,9 +116,14 @@ export class WaveFileReader {
         return min;
     }
 
+    // Given a sample number, handles processing it.
+    // This should only be called during the read() function, as part of the state computation.
+    // Undefined behavior can occur if ran multiple times.
     private handleSample(sample: number) {
         const value = this.getRawValueAtSample(sample);
         const valueState: SignalState = value >= 0 ? "high" : "low";
+
+        // If the signal isn't the same as last time, we have crossed zero and thus have to update our tracker.
         if (this.zeroCrossingCounterState.signal !== valueState) {
             this.zeroCrossingCounterState.signal = valueState;
 
@@ -117,39 +132,53 @@ export class WaveFileReader {
             // Given a sampling rate of x, the crossing could have happened any sample in the last 1/x seconds.
             // Thus, we determine how close between the previous value and the current value was, which is more likely when we crossed.
             // This works fine for regular single waves, but probably breaks for more complicated noise construction.
-            const totalDistance = value - this.zeroCrossingCounterState.lastFrequency;
+            const totalDistance =
+                value - this.zeroCrossingCounterState.lastFrequency;
             const distance = Math.abs(value / totalDistance);
             const fixedSample = sample - distance;
 
-            const timeSinceLastCrossing = fixedSample - this.zeroCrossingCounterState.lastCrossingTime;
+            const timeSinceLastCrossing =
+                fixedSample - this.zeroCrossingCounterState.lastCrossingTime;
 
+            // Given the time `t` since the last crossing, we can compute the frequency.
+            // If there's been 24 samples since the last crossing, and the sample rate is 48k,
+            // there must be 48 samples in a full cycle (we cross zero twice per full cycle),
+            // which therefore means our frequency is 1 / (2 * 24 / 48000), or 1KHz.
             const secondsBetweenCrossings =
                 (2 * timeSinceLastCrossing) / this.sampleRate;
             const baseFrequency = 1 / secondsBetweenCrossings;
-
-            const closest = this.getClosestKnownFrequency(baseFrequency);
 
             if (!isFinite(baseFrequency)) {
                 return;
             }
 
-            if (closest !== this.zeroCrossingCounterState.lastRecordedFrequency) {
+            // Smooth our frequency to a close value to avoid audio processing causing noise.
+            const closest = this.getClosestKnownFrequency(baseFrequency);
+
+            // This isn't the same as the previous frequency, so we take note of it.
+            if (
+                closest !== this.zeroCrossingCounterState.lastRecordedFrequency
+            ) {
+                // Compute when the wave started, by walking from the previous wave
                 const startOfWave =
                     Math.ceil(this.sampleRate / (closest / 0.5)) - 1;
 
+                // Store in our frequency map.
                 const sampleCandidate = sample - startOfWave;
-                this.zeroCrossingCounterState.frequencyMap[sampleCandidate > 0 ? sampleCandidate : sample] =
-                    closest;
+                this.zeroCrossingCounterState.frequencyMap[
+                    sampleCandidate > 0 ? sampleCandidate : sample
+                ] = closest;
                 this.zeroCrossingCounterState.lastRecordedFrequency = closest;
             }
 
             this.zeroCrossingCounterState.lastCrossingTime = fixedSample;
         }
 
+        // Keep track of this frequency so we can determine progress from it to the current sample.
         this.zeroCrossingCounterState.lastFrequency = value;
     }
 
-    // Assuming the optimized frequency map has already been computed, 
+    // Assuming the optimized frequency map has already been computed,
     // this function returns the cleaned frequency we resolved at a given sample.
     private getInferredFrequencyAtSample(sample: number): number {
         const key = this.zeroCrossingCounterState.optimizedFrequencyMap[sample];
@@ -168,14 +197,19 @@ export class WaveFileReader {
         if (byteLength) {
             const bitsNeededForBasicAndChecksum = (byteLength + 2) * 8;
 
-            const basicBytes = DataUtil.bitsToBytesAndValidateChecksum(bits.slice(0, bitsNeededForBasicAndChecksum));
+            const basicBytes = DataUtil.bitsToBytesAndValidateChecksum(
+                bits.slice(0, bitsNeededForBasicAndChecksum)
+            );
 
             // TODO: better document and test this portion of code.
             // The offset of 5 bits was obtained from empircal testing of real archives.
-            const dataBits = bits.slice(bitsNeededForBasicAndChecksum + 5, bits.length);
+            const dataBits = bits.slice(
+                bitsNeededForBasicAndChecksum + 5,
+                bits.length
+            );
 
             // There are no data bits, so we'll just return the basic.
-            if ((dataBits.length / 8) < 1) {
+            if (dataBits.length / 8 < 1) {
                 return { basic: basicBytes, data: [] };
             }
 
@@ -196,9 +230,9 @@ export class WaveFileReader {
     ): BasicAndDataStore {
         let sample = startingPosition;
         const bits: number[] = [];
-        
+
         console.debug("Reading bytes starting at sample", startingPosition);
-        
+
         // Starting at the beginning sample, we iterate through each wave cycle.
         // Once we identify the current cycle, we add the bit to our list, and then move forward sufficiently to be
         // at the next wave cycle.
@@ -218,10 +252,14 @@ export class WaveFileReader {
 
             // Unexpected wave encountered.
             if (
-                inferredFrequency !== WaveFileReader._FREQUENCY_ZERO_LOW_FREQUENCY &&
-                inferredFrequency !== WaveFileReader._FREQUENCY_ONE_LOW_FREQUENCY &&
-                inferredFrequency !== WaveFileReader._FREQUENCY_ZERO_HIGH_FREQUENCY &&
-                inferredFrequency !== WaveFileReader._FREQUENCY_ONE_HIGH_FREQUENCY
+                inferredFrequency !==
+                    WaveFileReader._FREQUENCY_ZERO_LOW_FREQUENCY &&
+                inferredFrequency !==
+                    WaveFileReader._FREQUENCY_ONE_LOW_FREQUENCY &&
+                inferredFrequency !==
+                    WaveFileReader._FREQUENCY_ZERO_HIGH_FREQUENCY &&
+                inferredFrequency !==
+                    WaveFileReader._FREQUENCY_ONE_HIGH_FREQUENCY
             ) {
                 throw new Error(
                     `Found unexpected frequency when parsing bit: ${inferredFrequency} at sample ${sample}`
@@ -230,35 +268,34 @@ export class WaveFileReader {
 
             // Add the bit, either 12KHz/2KHz for a 0, or 6KHz/1KHz for a 1.
             const isOne =
-                inferredFrequency === WaveFileReader._FREQUENCY_ONE_LOW_FREQUENCY || inferredFrequency === WaveFileReader._FREQUENCY_ONE_HIGH_FREQUENCY;
+                inferredFrequency ===
+                    WaveFileReader._FREQUENCY_ONE_LOW_FREQUENCY ||
+                inferredFrequency ===
+                    WaveFileReader._FREQUENCY_ONE_HIGH_FREQUENCY;
             bits.push(isOne ? 1 : 0);
 
-            // After processing the wave, we now move forward 
+            // After processing the wave, we now move forward exactly one wave cycle.
+            // e.g. if the frequency is 2000Hz and sample rate is 48k, we move forward 24 samples.
+            // This means our next iteration will be at the beginning of the next wave.
             const timeAdvancement = Math.ceil(
-                this.sampleRate *
-                    (inferredFrequency === WaveFileReader._FREQUENCY_ZERO_LOW_FREQUENCY
-                        ? 0.0005
-                        : inferredFrequency === WaveFileReader._FREQUENCY_ONE_LOW_FREQUENCY
-                        ? 0.001
-                        : inferredFrequency === WaveFileReader._FREQUENCY_ZERO_HIGH_FREQUENCY
-                        ? 0.001 / 12
-                        : 0.001 / 6)
+                this.sampleRate / inferredFrequency
             );
             sample += timeAdvancement;
         }
 
-        const realBytes = this.extractAndValidateDataFromBits(bits, byteLength);
-
-        return realBytes;
+        // Convert the bits to bytes and send er back.
+        return this.extractAndValidateDataFromBits(bits, byteLength);
     }
 
     // Returns the sample number that a given header starts at.
     // Every header begins with a 770Hz leader, followed by a sync bit, and then the data and checksum.
     // This function returns the very first sample to begin reading the data at.
     private getSampleHeaderDataStartsAt(which: number = 1 | 2) {
-        // Since the 770Hz leader is played before each header, to find the nth header, 
+        // Since the 770Hz leader is played before each header, to find the nth header,
         // we must find the nth leader
-        const headerKeys = Object.entries(this.zeroCrossingCounterState.frequencyMap)
+        const headerKeys = Object.entries(
+            this.zeroCrossingCounterState.frequencyMap
+        )
             .filter((entry) => {
                 if (entry[1] === WaveFileReader._FREQUENCY_LEADER) return true;
             })
@@ -267,8 +304,13 @@ export class WaveFileReader {
         const afterKey = headerKeys[which];
 
         // Now we find the first 2500Hz signal (the first half of the sync bit) such that it begins _after_ the nth 770Hz leader.
-        const startRange = Object.entries(this.zeroCrossingCounterState.frequencyMap).find((entry) => {
-            if (entry[1] === WaveFileReader._FREQUENCY_SYNC_BIT && parseInt(entry[0]) >= afterKey)
+        const startRange = Object.entries(
+            this.zeroCrossingCounterState.frequencyMap
+        ).find((entry) => {
+            if (
+                entry[1] === WaveFileReader._FREQUENCY_SYNC_BIT &&
+                parseInt(entry[0]) >= afterKey
+            )
                 return true;
         })?.[0];
 
@@ -298,7 +340,10 @@ export class WaveFileReader {
         const programLength = this.readProgramLength();
         console.debug("Program is of length", programLength);
 
-        return this.readBytes(this.getSampleHeaderDataStartsAt(1), programLength);
+        return this.readBytes(
+            this.getSampleHeaderDataStartsAt(1),
+            programLength
+        );
     }
 
     // An optimization that also makes the frequency map a bit easier to reason about.
@@ -339,14 +384,12 @@ export class WaveFileReader {
         this.zeroCrossingCounterState.optimizedFrequencyMap = map;
     }
 
-    read() {
+    // Reads the data from the WAVE archive and return the BASIC/Data bytes.
+    // May throw errors if anything fails.
+    read(): BasicAndDataStore {
         this.zeroCrossingCounterState = this.getInitialZeroCrossingCounterState;
 
-        for (
-            let sample = 0;
-            sample < this.numSamples;
-            sample ++
-        ) {
+        for (let sample = 0; sample < this.numSamples; sample++) {
             this.handleSample(sample);
         }
 
