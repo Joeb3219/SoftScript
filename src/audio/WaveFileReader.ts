@@ -1,5 +1,6 @@
 import fs from "fs";
 import _ from "lodash";
+import { DataUtil } from "../utils/Data.util";
 
 type SignalState = "high" | "low";
 
@@ -120,11 +121,7 @@ export class WaveFileReader {
     }
 
     private validateChecksum(bytes: number[], checksum: number) {
-        const computedChecksum = bytes.reduce((state, byte) => {
-            return state ^ byte;
-            // Unlike most checksums, Apple uses 0xFF instead of 0x00.
-            // See: http://mirrors.apple2.org.za/ground.icaen.uiowa.edu/MiscInfo/Programming/cassette.format
-        }, 0xff);
+        const computedChecksum = DataUtil.computeChecksum(bytes);
 
         console.debug(
             `Validating checksum`,
