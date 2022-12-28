@@ -1,9 +1,19 @@
 <html>
-    <audio controls>
-        <source
-            src="/Users/joeb3219/Downloads/basicprogram.wav"
-            type="audio/ogg"
-        />
-        Your browser does not support the audio element.
-    </audio>
+    <input type="file" id="file" />
+
+    <script>
+        document
+            .getElementById("file")
+            .addEventListener("change", ({ target }) => {
+                const audio = document.createElement("audio");
+
+                const urlObj = URL.createObjectURL(target.files[0]);
+                audio.addEventListener("load", () => {
+                    URL.revokeObjectURL(urlObj);
+                });
+                audio.src = urlObj;
+                audio.controls = true;
+                document.body.appendChild(audio);
+            });
+    </script>
 </html>
