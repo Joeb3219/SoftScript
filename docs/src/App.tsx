@@ -4,7 +4,7 @@ import {
     WaveFileGenerator,
     WaveFileReader,
 } from "@joeb3219/softscript";
-import { Button, Divider, Grid } from "@material-ui/core";
+import { Button, Grid, Typography } from "@material-ui/core";
 import { vscodeDark } from "@uiw/codemirror-theme-vscode";
 import CodeMirror from "@uiw/react-codemirror";
 import _ from "lodash";
@@ -31,28 +31,23 @@ const Header: React.FC = () => {
             item
             container
             direction={"row"}
-            style={{ padding: 16, width: "100%", backgroundColor: "#5D7681" }}
+            style={{
+                padding: 16,
+                width: "100%",
+                backgroundColor: "#5D7681",
+                height: 56,
+            }}
         >
-            <Grid item style={{ marginRight: 8 }}>
-                <Button variant={"contained"} color={"primary"}>
-                    text
-                </Button>
+            <Grid item>
+                <Typography variant={"h6"} color={"primary"}>
+                    SoftScript: Apple ][ Tools (WIP)
+                </Typography>
             </Grid>
-            <Grid item style={{ marginRight: 8 }}>
-                <Divider orientation={"vertical"} />
-            </Grid>
-            <Grid item style={{ marginRight: 8 }}>
-                <Button variant={"contained"} color={"primary"}>
-                    text
-                </Button>
-            </Grid>
-            <Grid item style={{ marginRight: 8 }}>
-                <Divider orientation={"vertical"} />
-            </Grid>
-            <Grid item style={{ marginRight: 8 }}>
-                <Button variant={"contained"} color={"primary"}>
-                    text
-                </Button>
+            <Grid item xs />
+            <Grid item style={{ marginTop: 4 }}>
+                <Typography variant={"body1"} color={"secondary"}>
+                    By Joseph A. Boyle
+                </Typography>
             </Grid>
         </Grid>
     );
