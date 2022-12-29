@@ -2,7 +2,7 @@
     "name": "@joeb3219/softscript-docs",
     "version": "0.1.0",
     "private": true,
-    "homepage": "http://joeb3219.github.io/softscript",
+    "homepage": "https://joeb3219.github.io/SoftScript",
     "dependencies": {
         "@joeb3219/softscript": "../",
         "@material-ui/core": "^4.12.4",
