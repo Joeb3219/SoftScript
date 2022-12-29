@@ -1,4 +1,4 @@
-import { CssBaseline, createTheme, ThemeProvider } from "@material-ui/core";
+import { createTheme, CssBaseline, ThemeProvider } from "@material-ui/core";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
@@ -19,7 +19,7 @@ const theme = createTheme({
             default: "#1e1e1e",
             paper: "#1e1e1e",
         },
-        divider: '#C9C7AF'
+        divider: "#C9C7AF",
     },
 });
 
@@ -29,7 +29,7 @@ const root = ReactDOM.createRoot(
 root.render(
     <React.StrictMode>
         <ThemeProvider theme={theme}>
-            <CssBaseline >
+            <CssBaseline>
                 <App />
             </CssBaseline>
         </ThemeProvider>

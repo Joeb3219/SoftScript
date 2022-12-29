@@ -110,6 +110,6 @@ export class ApplesoftAssembler {
 
         // The last two bytes of the program are always 0x00.
         // This translates to a "next instruction" address of 0, ending the processing of instructions.
-        return [...baseLines, [0x00, 0x00]]
+        return [...baseLines, [0x00, 0x00]];
     }
 }

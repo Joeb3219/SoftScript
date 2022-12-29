@@ -15,7 +15,7 @@
         "noEmit": true,
         "jsx": "react-jsx",
         "paths": {
-          "@joeb3219/applesoft": ["../src/index"]
+            "@joeb3219/applesoft": ["../src/index"]
         }
     },
     "include": ["src"]
