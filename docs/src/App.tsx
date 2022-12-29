@@ -4,7 +4,9 @@ import {
     WaveFileGenerator,
     WaveFileReader,
 } from "@joeb3219/softscript";
-import { Button, Grid, Typography } from "@material-ui/core";
+import { Button, Divider, Grid, Typography } from "@material-ui/core";
+import DownloadIcon from "@material-ui/icons/GetApp";
+import UploadIcon from "@material-ui/icons/Publish";
 import { vscodeDark } from "@uiw/codemirror-theme-vscode";
 import CodeMirror from "@uiw/react-codemirror";
 import _ from "lodash";
@@ -12,8 +14,6 @@ import React from "react";
 import BaseHexEditor from "react-hex-editor";
 import oneDarkPro from "react-hex-editor/themes/oneDarkPro";
 import "./App.css";
-import DownloadIcon from '@material-ui/icons/GetApp';
-import UploadIcon from '@material-ui/icons/Publish';
 /*
 LET x = 5
 LET y = x + 6
@@ -94,15 +94,17 @@ const LeftPanel: React.FC<BasicEditorProps> = (props) => {
             style={{ padding: "16px", height: "100%", width: "100%" }}
         >
             <Grid item>
-            <Typography variant={'h6'} color={'primary'}>
-                BASIC
-              </Typography>
-              <Typography variant={'body2'} color={'primary'}>
-                Enter a BASIC program here. You do not need to manually add line numbers -- they will be inferred by the line of the file.
-              </Typography>
-              </Grid>
+                <Typography variant={"h6"} color={"primary"}>
+                    BASIC
+                </Typography>
+                <Typography variant={"body2"} color={"primary"}>
+                    Enter a BASIC program here. You do not need to manually add
+                    line numbers -- they will be inferred by the line of the
+                    file.
+                </Typography>
+            </Grid>
             <Grid item xs>
-              <BasicEditor {...props} />
+                <BasicEditor {...props} />
             </Grid>
         </Grid>
     );
@@ -113,7 +115,9 @@ function useBasicConversion(lines: string[]) {
 
     React.useEffect(() => {
         const assembler = new ApplesoftAssembler(
-            lines.filter((l) => !!l).map((l, idx) => `${idx + 1} ${l}`)
+            _.compact(
+                lines.map((l, idx) => (!!l ? `${idx + 1} ${l}` : undefined))
+            )
         );
         const res = assembler.assembleMappedToInstruction();
         setBytes(res);
@@ -182,6 +186,7 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                 container
                 direction={"column"}
                 style={{ height: "100%", width: "100%", padding: "16px" }}
+                spacing={1}
             >
                 <Grid item>
                     <>
@@ -191,7 +196,7 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                     variant={"contained"}
                                     color={"primary"}
                                     onClick={() => downloadWave(true)}
-                                    startIcon={<DownloadIcon/>}
+                                    startIcon={<DownloadIcon />}
                                 >
                                     Auto Run
                                 </Button>
@@ -201,7 +206,7 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                     variant={"contained"}
                                     color={"primary"}
                                     onClick={() => downloadWave(false)}
-                                    startIcon={<DownloadIcon/>}
+                                    startIcon={<DownloadIcon />}
                                 >
                                     No Auto Run
                                 </Button>
@@ -211,7 +216,7 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                     variant={"contained"}
                                     component={"label"}
                                     color={"primary"}
-                                    startIcon={<UploadIcon/>}
+                                    startIcon={<UploadIcon />}
                                 >
                                     WAVE
                                     <input
@@ -251,9 +256,29 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                                         );
                                                     const lines =
                                                         deassembler.disassemble();
+                                                    const maxLine =
+                                                        _.maxBy(
+                                                            lines,
+                                                            (l) => l.line
+                                                        )?.line ?? 1;
+
                                                     setLines(
-                                                        lines.map(
-                                                            (l) => l.dataString
+                                                        _.range(1, maxLine).map(
+                                                            (lineNum) => {
+                                                                const lineByNumber =
+                                                                    lines.find(
+                                                                        (l) =>
+                                                                            l.line ===
+                                                                            lineNum
+                                                                    );
+                                                                if (
+                                                                    !lineByNumber
+                                                                ) {
+                                                                    return "";
+                                                                }
+
+                                                                return lineByNumber.dataString;
+                                                            }
                                                         )
                                                     );
                                                 }
@@ -265,12 +290,15 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                         </Grid>
                     </>
                     <Grid item style={{ marginTop: 8 }}>
-                      <Typography variant={'h6'} color={'primary'}>
-                        Decoded Bytes
-                      </Typography>
-                      <Typography variant={'body2'} color={'primary'}>
-                        The bytes corresponding to the current active line in the BASIC editor to the left will be highlighted in this HEX editor. Updating bytes in this editor will cause updates to the lines to the left.
-                      </Typography>
+                        <Typography variant={"h6"} color={"primary"}>
+                            Decoded Bytes
+                        </Typography>
+                        <Typography variant={"body2"} color={"primary"}>
+                            The bytes corresponding to the current active line
+                            in the BASIC editor to the left will be highlighted
+                            in this HEX editor. Updating bytes in this editor
+                            will cause updates to the lines to the left.
+                        </Typography>
                     </Grid>
                     <Grid item>
                         <BaseHexEditor
@@ -298,7 +326,17 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                 }
                             }}
                         />
-                      </Grid>
+                    </Grid>
+                    <Grid item style={{ marginTop: 8 }}>
+                        <Divider
+                            variant={"middle"}
+                            style={{ color: "#e1e1e1" }}
+                        />
+                    </Grid>
+
+                    <Grid item style={{ marginTop: 8 }}>
+                        Some other content
+                    </Grid>
                 </Grid>
             </Grid>
         </Grid>
