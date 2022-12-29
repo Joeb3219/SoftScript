@@ -12,7 +12,8 @@ import React from "react";
 import BaseHexEditor from "react-hex-editor";
 import oneDarkPro from "react-hex-editor/themes/oneDarkPro";
 import "./App.css";
-
+import DownloadIcon from '@material-ui/icons/GetApp';
+import UploadIcon from '@material-ui/icons/Publish';
 /*
 LET x = 5
 LET y = x + 6
@@ -92,7 +93,17 @@ const LeftPanel: React.FC<BasicEditorProps> = (props) => {
             xs
             style={{ padding: "16px", height: "100%", width: "100%" }}
         >
-            <BasicEditor {...props} />
+            <Grid item>
+            <Typography variant={'h6'} color={'primary'}>
+                BASIC
+              </Typography>
+              <Typography variant={'body2'} color={'primary'}>
+                Enter a BASIC program here. You do not need to manually add line numbers -- they will be inferred by the line of the file.
+              </Typography>
+              </Grid>
+            <Grid item xs>
+              <BasicEditor {...props} />
+            </Grid>
         </Grid>
     );
 };
@@ -180,8 +191,9 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                     variant={"contained"}
                                     color={"primary"}
                                     onClick={() => downloadWave(true)}
+                                    startIcon={<DownloadIcon/>}
                                 >
-                                    WAVE (Auto Run)
+                                    Auto Run
                                 </Button>
                             </Grid>
                             <Grid item>
@@ -189,8 +201,9 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                     variant={"contained"}
                                     color={"primary"}
                                     onClick={() => downloadWave(false)}
+                                    startIcon={<DownloadIcon/>}
                                 >
-                                    WAVE (No Auto Run)
+                                    No Auto Run
                                 </Button>
                             </Grid>
                             <Grid item>
@@ -198,8 +211,9 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                     variant={"contained"}
                                     component={"label"}
                                     color={"primary"}
+                                    startIcon={<UploadIcon/>}
                                 >
-                                    Upload WAVE
+                                    WAVE
                                     <input
                                         type="file"
                                         hidden
@@ -249,7 +263,16 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                 </Button>
                             </Grid>
                         </Grid>
-                        Some Content
+                    </>
+                    <Grid item style={{ marginTop: 8 }}>
+                      <Typography variant={'h6'} color={'primary'}>
+                        Decoded Bytes
+                      </Typography>
+                      <Typography variant={'body2'} color={'primary'}>
+                        The bytes corresponding to the current active line in the BASIC editor to the left will be highlighted in this HEX editor. Updating bytes in this editor will cause updates to the lines to the left.
+                      </Typography>
+                    </Grid>
+                    <Grid item>
                         <BaseHexEditor
                             ref={ref}
                             showAscii
@@ -275,7 +298,7 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                                 }
                             }}
                         />
-                    </>
+                      </Grid>
                 </Grid>
             </Grid>
         </Grid>

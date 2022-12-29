@@ -5,7 +5,7 @@
     "homepage": "https://joeb3219.github.io/SoftScript",
     "dependencies": {
         "@joeb3219/softscript": "../",
-        "@material-ui/core": "^4.12.4",
+        "@material-ui/icons": "^4.11.3",
         "@types/jest": "27.0.1",
         "@types/node": "16.7.13",
         "@types/react": "18.0.0",
