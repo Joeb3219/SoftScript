@@ -1,4 +1,3 @@
-import fs from "fs";
 import { ApplesoftAssembler } from "../applesoft/ApplesoftAssembler";
 import { DataUtil } from "../utils/Data.util";
 
@@ -228,7 +227,7 @@ export class WaveFileGenerator {
         }));
     }
 
-    write(path: string, shouldAutoRun: boolean = true) {
+    generate(shouldAutoRun: boolean = true): Buffer {
         // TODO: support data bytes input
         const dataBytes: number[] = [];
 
@@ -328,12 +327,6 @@ export class WaveFileGenerator {
         const soundBuffer = Buffer.concat(
             sounds.map((sound) => this.generateSound(sound))
         );
-        const buffer = Buffer.concat([
-            this.getHeader(soundBuffer.length),
-            soundBuffer,
-        ]);
-
-        // Write to disk
-        fs.writeFileSync(path, buffer);
+        return Buffer.concat([this.getHeader(soundBuffer.length), soundBuffer]);
     }
 }

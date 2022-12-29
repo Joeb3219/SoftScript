@@ -381,7 +381,9 @@ export class BasicTarget {
 
         if (path.toLowerCase().endsWith(".wav")) {
             const waveGenerator = new WaveFileGenerator(this.basicStatements);
-            waveGenerator.write(path, false);
+            const buffer = waveGenerator.generate(false);
+            // Write to disk
+            fs.writeFileSync(path, buffer);
         } else {
             fs.writeFileSync(path, this.basicStatements.join("\r\n"));
         }

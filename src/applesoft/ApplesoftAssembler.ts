@@ -96,4 +96,20 @@ export class ApplesoftAssembler {
         // This translates to a "next instruction" address of 0, ending the processing of instructions.
         return [...lineBytes, 0x00, 0x00];
     }
+
+    // Similar to `assemble`, but instead of returning a contiguous array of all bytes,
+    // returns a 2d array, where the first dimension is the index of the line that generated those instructions.
+    assembleMappedToInstruction(): number[][] {
+        const baseLines = this.lines.reduce<number[][]>((state, line) => {
+            const currentAddress =
+                state.length + ApplesoftAssembler._STARTING_ADDRESS;
+            const newBytes = this.assembleLine(currentAddress, line);
+
+            return [...state, newBytes];
+        }, []);
+
+        // The last two bytes of the program are always 0x00.
+        // This translates to a "next instruction" address of 0, ending the processing of instructions.
+        return [...baseLines, [0x00, 0x00]]
+    }
 }

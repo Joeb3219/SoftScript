@@ -1,7 +1,8 @@
 {
-    "name": "softscript",
-    "version": "1.0.0",
-    "main": "src/index.ts",
+    "name": "@joeb3219/softscript",
+    "version": "0.1.0",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsc",
         "lint": "prettier --write ."

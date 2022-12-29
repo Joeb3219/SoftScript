@@ -1,4 +1,3 @@
-import fs from "fs";
 import _ from "lodash";
 import { DataUtil } from "../utils/Data.util";
 
@@ -39,7 +38,6 @@ export class WaveFileReader {
     private static readonly _WAVE_HEADER_SIZE_BYTES = 44;
 
     // Data inferred from the file path about the wave file.
-    private data: Buffer;
     private sampleRate: number;
     private numSamples: number;
 
@@ -49,9 +47,7 @@ export class WaveFileReader {
     // This is how the Apple II computes the frequency, and is how we do too -- it's quick and cheap!
     zeroCrossingCounterState: ZeroCrossingCounterState;
 
-    constructor(path: string) {
-        this.data = fs.readFileSync(path);
-
+    constructor(private readonly data: Buffer) {
         // For specifics on these fields and how they're stored,
         // see either WaveFileGenerator or http://soundfile.sapp.org/doc/WaveFormat/
         this.sampleRate = this.data.readUint16LE(0x18);

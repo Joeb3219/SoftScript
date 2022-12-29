@@ -28,11 +28,15 @@ export class ConverterUtil {
         const lines = data.split("\r\n");
 
         const generator = new WaveFileGenerator(lines);
-        generator.write(outPath, shouldAutoRun);
+        const buffer = generator.generate(shouldAutoRun);
+
+        // Write to disk
+        fs.writeFileSync(outPath, buffer);
     }
 
     static readWaveAndDisassemble(inPath: string, outPathStub: string) {
-        const reader = new WaveFileReader(inPath);
+        const buffer = fs.readFileSync(inPath);
+        const reader = new WaveFileReader(buffer);
         const result = reader.read();
 
         if ("basic" in result) {
