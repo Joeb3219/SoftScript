@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { OpcodeToApplesoftInstructionMap } from "./Applesoft.types";
 
 export class ApplesoftAssembler {
@@ -102,7 +103,8 @@ export class ApplesoftAssembler {
     assembleMappedToInstruction(): number[][] {
         const baseLines = this.lines.reduce<number[][]>((state, line) => {
             const currentAddress =
-                state.length + ApplesoftAssembler._STARTING_ADDRESS;
+                _.sumBy(state, (group) => group.length) +
+                ApplesoftAssembler._STARTING_ADDRESS;
             const newBytes = this.assembleLine(currentAddress, line);
 
             return [...state, newBytes];

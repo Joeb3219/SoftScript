@@ -266,13 +266,12 @@ const RightPanel: React.FC<BasicEditorProps> = ({
                             width={800}
                             onSetValue={(pos: number, val: number) => {
                                 setError(false);
-                                const flatBytes = _.flatten(bytes);
-                                flatBytes[pos] = val;
-                                setByteData(flatBytes);
+                                byteData[pos] = val;
+                                setByteData(byteData);
 
                                 try {
                                     const disassembler =
-                                        new ApplesoftDisassembler(flatBytes);
+                                        new ApplesoftDisassembler(byteData);
                                     const result = disassembler.disassemble();
                                     setLines(result.map((r) => r.dataString));
                                 } catch (err) {
@@ -342,20 +341,6 @@ function App() {
                     activeLineNumber={activeLineNumber}
                     setActiveLineNumber={setActiveLineNumber}
                 />
-
-                {/* {bytes?.join(", ")}
-            <button
-                onClick={() => {
-                    const gen = new WaveFileGenerator(
-                        lines.map((l, idx) => `${idx + 1} ${l}`)
-                    );
-                    setBuff(gen.generate(true));
-                }}
-            >
-                Generate download
-            </button>
-
-            {buffLink && <a href={buffLink}>DOWNLOAD</a>} */}
             </Grid>
         </Grid>
     );
