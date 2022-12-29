@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/softscript/static/css/main.e6c13ad2.css",
+    "main.js": "/softscript/static/js/main.d1b034a6.js",
+    "index.html": "/softscript/index.html",
+    "main.e6c13ad2.css.map": "/softscript/static/css/main.e6c13ad2.css.map",
+    "main.d1b034a6.js.map": "/softscript/static/js/main.d1b034a6.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e6c13ad2.css",
+    "static/js/main.d1b034a6.js"
+  ]
+}
