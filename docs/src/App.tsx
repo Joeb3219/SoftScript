@@ -215,7 +215,7 @@ const RightPanel: React.FC<BasicEditorProps> = ({
 
                                             if (!blob) {
                                                 // TOOD: snackbar.
-                                                console.error("No file read");
+                                                console.error("No file read.");
                                                 return;
                                             }
 
