@@ -162,14 +162,22 @@ const RightPanel: React.FC<BasicEditorProps> = ({
     }, [bytes, setByteData]);
 
     React.useEffect(() => {
-        const byteStart = _.sumBy(
-            bytes.slice(0, activeLineNumber),
+      // Empty line, skip it
+      if (!lines[activeLineNumber]) {
+        ref.current?.setSelectionRange(0, 0);
+        return;
+      }
+
+      const numFakeLinesBeforeLine = _.sumBy(lines.slice(0, activeLineNumber), l => !!l ? 0 : 1);
+      const realLineNumber = activeLineNumber - numFakeLinesBeforeLine;
+      const byteStart = _.sumBy(
+            bytes.slice(0, realLineNumber),
             (g) => g.length
         );
-        const byteEnd = byteStart + (bytes[activeLineNumber]?.length ?? 0);
+        const byteEnd = byteStart + (bytes[realLineNumber]?.length ?? 0);
 
         ref.current?.setSelectionRange(byteStart, byteEnd);
-    }, [ref, activeLineNumber]);
+    }, [ref, lines, activeLineNumber]);
 
     return (
         <Grid
