@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/SoftScript/static/css/main.e6c13ad2.css",
-    "main.js": "/SoftScript/static/js/main.09cf76e1.js",
+    "main.js": "/SoftScript/static/js/main.a14431e9.js",
     "index.html": "/SoftScript/index.html",
     "main.e6c13ad2.css.map": "/SoftScript/static/css/main.e6c13ad2.css.map",
-    "main.09cf76e1.js.map": "/SoftScript/static/js/main.09cf76e1.js.map"
+    "main.a14431e9.js.map": "/SoftScript/static/js/main.a14431e9.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.09cf76e1.js"
+    "static/js/main.a14431e9.js"
   ]
 }
